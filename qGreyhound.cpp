@@ -16,7 +16,6 @@
 //##########################################################################
 
 #include "qGreyhound.h"
-#include "GreyhoundResource.h"
 
 // Qt
 #include <QtGui>
@@ -28,17 +27,18 @@
 
 #include <QDataStream>
 
-// CloudCompare
-#include <ccPointCloud.h>
-
 #include <array>
 
+#include <ccHObject.h>
 
 //Default constructor: should mainly be used to initialize
 //actions (pointers) and other members
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
-	, m_action(0)
+	, m_action(nullptr)
+	, m_getNextOctreeLevel(nullptr)
+	, m_cloud(nullptr)
+	, m_resource()
 {
 }
 
@@ -68,7 +68,14 @@ void qGreyhound::getActions(QActionGroup& group)
 		connect(m_action, SIGNAL(triggered()), this, SLOT(doAction()));
 	}
 
+	if (!m_getNextOctreeLevel)
+	{
+		m_getNextOctreeLevel = new QAction("Get next octree level", this);
+		connect(m_getNextOctreeLevel, SIGNAL(triggered()), this, SLOT(getNextOctreeLevel()));
+	}
+
 	group.addAction(m_action);
+	group.addAction(m_getNextOctreeLevel);
 }
 
 void info_querry(const QUrl& resource_url)
@@ -76,6 +83,41 @@ void info_querry(const QUrl& resource_url)
 	QUrl info_url(resource_url.toString() + "/info");
 
 }
+
+int add_data_to_cloud(ccPointCloud *cloud, QByteArray points_data) 
+{
+	QByteArray data;
+	for (size_t i = points_data.size() - 4; i < points_data.size(); ++i) {
+		data.append(points_data.at(i));
+	}
+	uint32_t num_pts_recieved = *(uint32_t*) data.constData();
+
+	if (!cloud) {
+		return -1;
+	}
+
+	if (!cloud->reserve(cloud->size() + num_pts_recieved)) {
+		return -1;
+	}
+
+	QDataStream stream(points_data);
+	std::array<char, sizeof(double) * 3> buffer;
+	double x = 0.0, y = 0.0, z = 0.0;
+
+	for (size_t i = 0; i < num_pts_recieved; ++i) {
+
+		stream.readRawData(buffer.data(), buffer.size());
+		double *xyz = (double*) buffer.data();
+		x = xyz[0];
+		y = xyz[1];
+		z = xyz[2];
+
+		CCVector3d point(x, y, z);
+		cloud->addPoint(CCVector3::fromArray(point.u));
+	}
+	return num_pts_recieved;
+}
+
 
 //This is an example of an action's slot called when the corresponding action
 //is triggered (i.e. the corresponding icon or menu entry is clicked in CC's
@@ -122,39 +164,27 @@ void qGreyhound::doAction()
 		return;
 	}
 
-	GreyhoundResource r(url);
+	m_resource.set_url(url);
 	QJsonObject infos;
 	QJsonObject count;
 
 	try {
-		infos = r.info_query();
+		infos = m_resource.info_query();
 	}
 	catch (const GreyhoundExc& e) {
 		m_app->dispToConsole(e.message(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
 	}
 
-	int base_depth = infos.value("baseDepth").toInt();
-	m_app->dispToConsole(QString("baseDepth: %1").arg(base_depth), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+	m_curr_octree_lvl = infos.value("baseDepth").toInt();
+	m_app->dispToConsole(QString("baseDepth: %1").arg(m_curr_octree_lvl), ccMainAppInterface::STD_CONSOLE_MESSAGE);
 
-	m_app->dispToConsole(QString("Asking for the point count of the resource"), ccMainAppInterface::STD_CONSOLE_MESSAGE);
-	try {
-		count = r.count_query();
-	}
-	catch (const GreyhoundExc& e) {
-		m_app->dispToConsole(e.message(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-		return;
-	}
-
-	uint64_t num_pts = count.value("points").toInt();
-	m_app->dispToConsole(QString("[qGreyhound] NumberOfPoints: %1").arg(num_pts), ccMainAppInterface::STD_CONSOLE_MESSAGE);
-
-
-	m_app->dispToConsole(QString("Downloading points of cloud (octree lvl 8)"), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+	m_app->dispToConsole(QString("Downloading points of cloud (octree lvl %1)").arg(m_curr_octree_lvl), ccMainAppInterface::STD_CONSOLE_MESSAGE);
 	QByteArray points_data;
 	try {
-		//TODO Add Params as QJsonObject
-		points_data = r.read_query();
+		QUrlQuery options;
+		options.addQueryItem("depth", QString::number(m_curr_octree_lvl));
+		points_data = m_resource.read_query(options);
 	}
 	catch (const GreyhoundExc& e) {
 		m_app->dispToConsole(e.message(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -163,40 +193,39 @@ void qGreyhound::doAction()
 	
 
 	m_app->dispToConsole(QString("[qGreyhound] Recieved %1 bytes").arg(points_data.size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
-
-	QByteArray data;
-	for (size_t i = points_data.size() - 4; i < points_data.size(); ++i) {
-		data.append(points_data.at(i));
-	}
 	
-	uint32_t num_pts_recieved = *(uint32_t*) data.constData();
-	m_app->dispToConsole(QString("[qGreyhound] Recieved %1 points").arg(num_pts_recieved), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+	m_cloud = new ccPointCloud("Greyhound");
+	int num_pts_recieved = add_data_to_cloud(m_cloud, points_data);
 
-	ccPointCloud *cloud = new ccPointCloud("Greyhound");
-	if (!cloud->reserve(num_pts_recieved)) {
-		delete cloud;
-		m_app->dispToConsole("Not enough memory!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-		return; 
+
+	if (num_pts_recieved < 0) {
+		m_app->dispToConsole(QString("[qGreyhound] No points"), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+	}
+	else {
+		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(m_cloud->size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+		m_app->addToDB(m_cloud);
+	}
+}
+
+void qGreyhound::getNextOctreeLevel()
+{
+	QByteArray points_data;
+	try {
+		QUrlQuery options;
+		options.addQueryItem("depth", QString::number(++m_curr_octree_lvl));
+		points_data = m_resource.read_query(options);
+	}
+	catch (const GreyhoundExc& e) {
+		m_app->dispToConsole(e.message(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+		return;
 	}
 
-	QDataStream stream(&points_data, QIODevice::OpenModeFlag::ReadOnly);
-	std::array<char, sizeof(double) * 3> buffer;
-	double x = 0.0, y = 0.0, z = 0.0;
-
-	for (size_t i = 0; i < num_pts_recieved; ++i) {
-	
-		stream.readRawData(buffer.data(), buffer.size());
-		double *xyz = (double*) buffer.data();
-		x = xyz[0];
-		y = xyz[1];
-		z = xyz[2];
-
-		CCVector3d point(x, y, z);
-		cloud->addPoint(CCVector3::fromArray(point.u));
-	}
-	m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(cloud->size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
-
-	m_app->addToDB(cloud);
+	ccPointCloud *new_level = new ccPointCloud();
+	int num_pts_recieved = add_data_to_cloud(new_level, points_data);
+	m_cloud->append(new_level, m_cloud->size());
+	m_app->dispToConsole(QString("[qGreyhound] Recieved %1, now cloud has %2 points").arg(num_pts_recieved).arg(m_cloud->size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+	m_cloud->prepareDisplayForRefresh();
+	m_cloud->refreshDisplay();
 }
 
 

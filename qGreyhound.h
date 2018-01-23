@@ -18,8 +18,12 @@
 #ifndef Q_GREYHOUND_PLUGIN_HEADER
 #define Q_GREYHOUND_PLUGIN_HEADER
 
+#include <ccPointCloud.h>
+
 //qCC
 #include "../ccStdPluginInterface.h"
+
+#include "GreyhoundResource.h"
 
 //! Dummy qCC plugin
 /** Replace the 'qGreyhound' string by your own plugin class name
@@ -46,6 +50,7 @@ public:
 
 	//! Default constructor
 	explicit qGreyhound(QObject* parent = 0);
+	~qGreyhound() {}
 
 	//inherited from ccPluginInterface
 	virtual QString getName() const override { return "qGreyhound"; }
@@ -60,6 +65,7 @@ protected slots:
 
 	/*** ADD YOUR CUSTOM ACTIONS' SLOTS HERE ***/
 	void doAction();
+	void getNextOctreeLevel();
 
 protected:
 
@@ -69,6 +75,14 @@ protected:
 		toolbar and an entry in the plugin menu.
 	**/
 	QAction* m_action;
+	QAction* m_getNextOctreeLevel;
+
+
+	//Greyhound related things
+	GreyhoundResource m_resource;
+	unsigned int m_curr_octree_lvl;
+	ccPointCloud *m_cloud;
+
 };
 
 #endif

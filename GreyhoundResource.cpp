@@ -14,9 +14,19 @@ GreyhoundResource::GreyhoundResource(QUrl url)
 {
 }
 
+GreyhoundResource::GreyhoundResource()
+	: m_base_url()
+	, m_reply(nullptr)
+{
+}
+
 
 GreyhoundResource::~GreyhoundResource()
 {
+}
+
+void GreyhoundResource::set_url(QUrl url) {
+	m_base_url = url;
 }
 
 QJsonObject GreyhoundResource::info_query()
@@ -62,12 +72,10 @@ QJsonObject GreyhoundResource::count_query()
 	return document.object();
 }
 
-QByteArray GreyhoundResource::read_query()
+QByteArray GreyhoundResource::read_query(QUrlQuery options)
 {
 	QEventLoop loop;
 	QUrl read_url(m_base_url.toString() + "/read");
-	QUrlQuery options;
-	options.addQueryItem("depth", "8");
 	options.addQueryItem("schema", "[{\"name\":\"X\",\"type\":\"floating\",\"size\":\"8\"},{\"name\":\"Y\",\"type\":\"floating\",\"size\":\"8\"},{\"name\":\"Z\",\"type\":\"floating\",\"size\":\"8\"}]");
 	read_url.setQuery(options);
 

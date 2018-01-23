@@ -11,11 +11,18 @@ class GreyhoundResource
 {
 public:
 	GreyhoundResource(QUrl url);
+	GreyhoundResource();
 	~GreyhoundResource();
 
+
+	// Some setters
+	void set_url(QUrl url);
+	const QUrl& url() { return m_base_url; }
+
+	// Query related functions
 	QJsonObject info_query();
 	QJsonObject count_query();
-	QByteArray read_query();
+	QByteArray read_query(QUrlQuery options);
 
 
 private:

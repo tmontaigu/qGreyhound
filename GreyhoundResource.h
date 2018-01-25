@@ -39,7 +39,7 @@ class GreyhoundExc : public QException
 public:
 	GreyhoundExc(const QString& msg) : m_msg(msg) {}
 
-	const char* what() const { return m_msg.toStdString().c_str(); }
+	virtual const char* what() const noexcept { return m_msg.toStdString().c_str(); }
 	const QString& message() const { return m_msg; }
 
 	void raise() const { throw *this; }

@@ -31,8 +31,6 @@
 
 #include <ccHObject.h>
 
-//Default constructor: should mainly be used to initialize
-//actions (pointers) and other members
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
 	, m_action(nullptr)
@@ -61,7 +59,7 @@ void qGreyhound::getActions(QActionGroup& group)
 	{
 		//here we use the default plugin name, description and icon,
 		//but each action can have its own!
-		m_action = new QAction(getName(),this);
+		m_action = new QAction("Connect to Greyhound resource", this);
 		m_action->setToolTip(getDescription());
 		m_action->setIcon(getIcon());
 		//connect appropriate signal
@@ -78,11 +76,6 @@ void qGreyhound::getActions(QActionGroup& group)
 	group.addAction(m_getNextOctreeLevel);
 }
 
-void info_querry(const QUrl& resource_url)
-{
-	QUrl info_url(resource_url.toString() + "/info");
-
-}
 
 int add_data_to_cloud(ccPointCloud *cloud, QByteArray points_data) 
 {
@@ -226,6 +219,7 @@ void qGreyhound::getNextOctreeLevel()
 	m_app->dispToConsole(QString("[qGreyhound] Recieved %1, now cloud has %2 points").arg(num_pts_recieved).arg(m_cloud->size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
 	m_cloud->prepareDisplayForRefresh();
 	m_cloud->refreshDisplay();
+	m_app->updateUI();
 }
 
 

@@ -1,6 +1,6 @@
 //##########################################################################
 //#                                                                        #
-//#                       CLOUDCOMPARE PLUGIN: qDummy                      #
+//#                       CLOUDCOMPARE PLUGIN: qGreyhound                  #
 //#                                                                        #
 //#  This program is free software; you can redistribute it and/or modify  #
 //#  it under the terms of the GNU General Public License as published by  #
@@ -25,7 +25,6 @@
 
 #include "GreyhoundResource.h"
 
-//! Dummy qCC plugin
 /** Replace the 'qGreyhound' string by your own plugin class name
 	and then check 'qGreyhound.cpp' for more directions (you
 	have to fill-in the blank methods. The most important one is the
@@ -43,8 +42,7 @@ class qGreyhound : public QObject, public ccStdPluginInterface
 {
 	Q_OBJECT
 	Q_INTERFACES(ccStdPluginInterface)
-	//replace qDummy by the plugin name (IID should be unique - let's hope your plugin name is unique ;)
-	Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qDummy")
+	Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qGreyhound")
 
 public:
 

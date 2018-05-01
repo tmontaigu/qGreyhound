@@ -21,7 +21,7 @@
 #include <ccPointCloud.h>
 
 //qCC
-#include "../ccStdPluginInterface.h"
+#include "ccStdPluginInterface.h"
 
 #include "GreyhoundResource.h"
 
@@ -42,26 +42,25 @@ class qGreyhound : public QObject, public ccStdPluginInterface
 {
 	Q_OBJECT
 	Q_INTERFACES(ccStdPluginInterface)
-	Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qGreyhound")
+	Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qGreyhound" FILE "info.json")
 
 public:
 
 	//! Default constructor
 	explicit qGreyhound(QObject* parent = 0);
-	~qGreyhound() {}
+	virtual ~qGreyhound() = default;
 
 	//inherited from ccPluginInterface
 	virtual QString getName() const override { return "qGreyhound"; }
-	virtual QString getDescription() const override { return "Dummy plugin (add description here)"; }
+	virtual QString getDescription() const override { return "Greyhound things in cloudcompare"; }
 	virtual QIcon getIcon() const override;
 
 	//inherited from ccStdPluginInterface
 	void onNewSelection(const ccHObject::Container& selectedEntities) override;
-	virtual void getActions(QActionGroup& group) override;
+	virtual QList<QAction*> getActions() override;
 
 protected slots:
 
-	/*** ADD YOUR CUSTOM ACTIONS' SLOTS HERE ***/
 	void doAction();
 	void getNextOctreeLevel();
 

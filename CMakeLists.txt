@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
-#REPLACE ALL 'DUMMY' OCCURENCES BY YOUR PLUGIN NAME
-#AND ADAPT THE CODE BELOW TO YOUR OWN NEEDS!
 
-option( INSTALL_QGREYHOUND_PLUGIN "Check to install qDUMMY plugin" OFF )
+option( INSTALL_QGREYHOUND_PLUGIN "Check to install qGreyhound plugin" OFF )
 
 # CloudCompare 'DUMMY' plugin
 if (INSTALL_QGREYHOUND_PLUGIN)
@@ -16,7 +14,7 @@ if (INSTALL_QGREYHOUND_PLUGIN)
     
     #if the plugin is an 'OpenGL filter', uncomment the line below
     #set( CC_OPENGL_FILTER ON BOOL)
-    include( ../CMakePluginTpl.cmake )
+    include( ../../CMakePluginTpl.cmake )
     
     #set dependencies to necessary libraries (see qPCV for an example)
     #target_link_libraries( ${PROJECT_NAME} LIB1 )

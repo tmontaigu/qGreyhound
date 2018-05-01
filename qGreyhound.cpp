@@ -33,6 +33,7 @@
 
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
+	, ccStdPluginInterface(":/CC/plugin/qGreyhound/info.json")
 	, m_action(nullptr)
 	, m_getNextOctreeLevel(nullptr)
 	, m_cloud(nullptr)
@@ -52,7 +53,7 @@ void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 
 //This method returns all 'actions' of your plugin.
 //It will be called only once, when plugin is loaded.
-void qGreyhound::getActions(QActionGroup& group)
+QList<QAction*> qGreyhound::getActions()
 {
 	//default action (if it has not been already created, it's the moment to do it)
 	if (!m_action)
@@ -72,8 +73,7 @@ void qGreyhound::getActions(QActionGroup& group)
 		connect(m_getNextOctreeLevel, SIGNAL(triggered()), this, SLOT(getNextOctreeLevel()));
 	}
 
-	group.addAction(m_action);
-	group.addAction(m_getNextOctreeLevel);
+	return QList<QAction*> { m_action, m_getNextOctreeLevel };
 }
 
 

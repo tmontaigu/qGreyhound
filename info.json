@@ -1,0 +1,12 @@
+{
+	"type": "Standard",
+	"name": "qGreyhound (Standard Plugin)",
+	"icon": ":/CC/plugin/qGreyhound/icon.png",
+	"description": "Greyhound access in CloudCompare",
+	"authors": [
+		{
+			"name": "Thomas Montaigu",
+			"email": "thomas.montaigu@laposte.net"
+		}
+	]
+}

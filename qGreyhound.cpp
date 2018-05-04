@@ -29,6 +29,8 @@
 
 #include <array>
 
+#include <GreyhoundReader.hpp>
+
 #include <ccHObject.h>
 
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
@@ -198,6 +200,34 @@ void qGreyhound::doAction()
 		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(m_cloud->size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
 		m_app->addToDB(m_cloud);
 	}
+
+
+	pdal::GreyhoundReader reader;
+	pdal::Options opts;
+	opts.add("url", text.toStdString());
+	opts.add("depth_begin", m_curr_octree_lvl);
+	opts.add("depth_end", m_curr_octree_lvl);
+	reader.addOptions(opts);
+
+
+	m_app->dispToConsole(QString("OPTS OK"));
+	try {
+		pdal::PointTable table;
+		reader.prepare(table);
+		m_app->dispToConsole(QString("PrepareTable"));
+	}
+	catch (const std::exception &e) {
+		m_app->dispToConsole(QString("%1").arg(e.what()));
+
+	}
+	//try {
+	//	pdal::PointViewSet view_set = reader.execute(table);
+	//	pdal::PointViewPtr view_ptr = *view_set.begin();
+	//	m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+	//}
+	//catch (...) {
+	//	m_app->dispToConsole(QString("ERROR GreyhoundReader"));
+	//}
 }
 
 void qGreyhound::getNextOctreeLevel()

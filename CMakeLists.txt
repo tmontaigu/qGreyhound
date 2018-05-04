@@ -22,4 +22,41 @@ if (INSTALL_QGREYHOUND_PLUGIN)
 
     find_package(Qt5Network REQUIRED)
 	target_link_libraries(QGREYHOUND_PLUGIN Qt5::Network)
+
+
+
+	find_package(PDAL 1.0.0 REQUIRED CONFIG)
+	if ( NOT PDAL_FOUND )
+		message( SEND_ERROR "PDAL package not found!")
+	else()
+		include_directories(${PDAL_INCLUDE_DIRS})
+		link_directories(${PDAL_LIBRARY_DIRS})
+	endif()
+
+	if( PDAL_FOUND )
+		add_definitions(${PDAL_DEFINITIONS})
+		target_link_libraries(QGREYHOUND_PLUGIN ${PDAL_LIBRARIES})
+
+		if( WIN32 )
+			if ( MSVC_VERSION GREATER_EQUAL 1900 ) # Visual Studio 2017
+				add_definitions(-DWIN32_LEAN_AND_MEAN)
+			endif()
+
+			target_link_libraries(QGREYHOUND_PLUGIN "pdal_util")
+		endif()
+	else()
+		message( SEND_ERROR "PDAL package not found: can't link" )
+	endif()
+
+	include_directories( "C:\\Users\\t.montaigu\\Projects\\pdal\\plugins\\greyhound\\io" )
+	include_directories( "C:\\libs\\include" ) # arbiter
+
+	find_library(PDAL_GREYHOUND_READER libpdal_plugin_reader_greyhound HINTS ${PDAL_LIBRARY_DIRS})
+	target_link_libraries(QGREYHOUND_PLUGIN  ${PDAL_GREYHOUND_READER})
+
+	find_library(ARBITER arbiter HINTS "C:\\libs\\lib")
+	target_link_libraries(QGREYHOUND_PLUGIN ${ARBITER})
+
+
+
 endif()

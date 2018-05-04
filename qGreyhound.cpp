@@ -30,6 +30,8 @@
 #include <array>
 
 #include <GreyhoundReader.hpp>
+#include <bounds.hpp>
+#include <cmath>
 
 #include <ccHObject.h>
 
@@ -62,7 +64,7 @@ QList<QAction*> qGreyhound::getActions()
 	{
 		//here we use the default plugin name, description and icon,
 		//but each action can have its own!
-		m_action = new QAction("Connect to Greyhound resource", this);
+		m_action = new QAction("Download box", this);
 		m_action->setToolTip(getDescription());
 		m_action->setIcon(getIcon());
 		//connect appropriate signal
@@ -89,8 +91,24 @@ int convert_view_to_cloud(pdal::PointViewPtr view, ccPointCloud *cloud)
 		return -1;
 	}
 
+	CCVector3d bbmin{
+		std::numeric_limits<double>::max(),
+		std::numeric_limits<double>::max(),
+		std::numeric_limits<double>::max()
+	};
+
 	for (size_t i = 0; i < view->size(); ++i) {
-		cloud->addPoint(CCVector3(view->getFieldAs<double>(pdal::Dimension::Id::X, i), view->getFieldAs<double>(pdal::Dimension::Id::Y, i), view->getFieldAs<double>(pdal::Dimension::Id::Z, i)));
+		bbmin[0] = std::fmin(bbmin[0], view->getFieldAs<double>(pdal::Dimension::Id::X, i));
+		bbmin[1] = std::fmin(bbmin[1], view->getFieldAs<double>(pdal::Dimension::Id::X, i));
+		bbmin[2] = std::fmin(bbmin[2], view->getFieldAs<double>(pdal::Dimension::Id::X, i));
+	}
+
+	for (size_t i = 0; i < view->size(); ++i) {
+		cloud->addPoint(CCVector3(
+			view->getFieldAs<double>(pdal::Dimension::Id::X, i) - bbmin[0],
+			view->getFieldAs<double>(pdal::Dimension::Id::Y, i) - bbmin[1],
+			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - bbmin[2])
+		);
 	}
 
 	return view->size();
@@ -158,12 +176,22 @@ void qGreyhound::doAction()
 	m_app->dispToConsole(QString("baseDepth: %1").arg(m_curr_octree_lvl), ccMainAppInterface::STD_CONSOLE_MESSAGE);
 	m_app->dispToConsole(QString("Downloading points of cloud (octree lvl %1)").arg(m_curr_octree_lvl), ccMainAppInterface::STD_CONSOLE_MESSAGE);
 	
-
+	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
+	m_app->dispToConsole(QString("AREA: %1").arg(bounds.area()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+		
 	pdal::GreyhoundReader reader;
 	pdal::Options opts;
 	opts.add("url", text.toStdString());
-	opts.add("depth_begin", m_curr_octree_lvl);
-	opts.add("depth_end", m_curr_octree_lvl + 1);
+	//opts.add("depth_begin", m_curr_octree_lvl);
+	//opts.add("depth_end", m_curr_octree_lvl + 1);
+	opts.add("bounds", bounds.toJson());
+
+	Json::Value dims(Json::arrayValue);
+	dims.append(Json::Value("X"));
+	dims.append(Json::Value("Y"));
+	dims.append(Json::Value("Z"));
+	opts.add("dims", dims);
+
 	reader.addOptions(opts);
 
 	pdal::PointTable table;

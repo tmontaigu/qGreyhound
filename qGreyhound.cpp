@@ -34,6 +34,8 @@
 #include <cmath>
 
 #include <ccHObject.h>
+#include <ccScalarField.h>
+#include <ccColorScalesManager.h>
 
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
@@ -109,6 +111,32 @@ int convert_view_to_cloud(pdal::PointViewPtr view, ccPointCloud *cloud)
 			view->getFieldAs<double>(pdal::Dimension::Id::Y, i) - bbmin[1],
 			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - bbmin[2]
 		));
+	}
+
+
+	for (pdal::Dimension::Id id : view->dims()) {
+		if (id == pdal::Dimension::Id::X ||
+			id == pdal::Dimension::Id::Y ||
+			id == pdal::Dimension::Id::Z) {
+			continue;
+		}
+		ccScalarField *sf = new ccScalarField(pdal::Dimension::name(id).c_str());
+		sf->reserve(view->size());
+
+		for (size_t i = 0; i < view->size(); ++i) {
+			ScalarType value = view->getFieldAs<ScalarType>(id, i);
+			sf->addElement(value);
+
+		}
+
+		sf->computeMinAndMax();
+
+		if (id == pdal::Dimension::Id::Intensity) {
+			sf->setColorScale(ccColorScalesManager::GetDefaultScale(ccColorScalesManager::GREY));
+		}
+
+		cloud->addScalarField(sf);
+		sf->link();
 	}
 
 	return view->size();
@@ -190,6 +218,8 @@ void qGreyhound::doAction()
 	dims.append(Json::Value("X"));
 	dims.append(Json::Value("Y"));
 	dims.append(Json::Value("Z"));
+	dims.append(Json::Value("Intensity"));
+	dims.append(Json::Value("Classification"));
 	opts.add("dims", dims);
 
 	reader.addOptions(opts);
@@ -235,7 +265,6 @@ void qGreyhound::getNextOctreeLevel()
 	}
 
 	ccPointCloud *new_level = new ccPointCloud();
-	//int num_pts_recieved = add_data_to_cloud(new_level, points_data);
 	m_cloud->append(new_level, m_cloud->size());
 	m_cloud->prepareDisplayForRefresh();
 	m_cloud->refreshDisplay();

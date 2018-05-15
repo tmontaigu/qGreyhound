@@ -131,11 +131,13 @@ int convert_view_to_cloud(pdal::PointViewPtr view, ccPointCloud *cloud)
 
 		sf->computeMinAndMax();
 
+		int sf_index = cloud->addScalarField(sf);
 		if (id == pdal::Dimension::Id::Intensity) {
 			sf->setColorScale(ccColorScalesManager::GetDefaultScale(ccColorScalesManager::GREY));
+			cloud->setCurrentDisplayedScalarField(sf_index);
+			cloud->showSF(true);
 		}
 
-		cloud->addScalarField(sf);
 		sf->link();
 	}
 

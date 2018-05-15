@@ -54,7 +54,7 @@ if (INSTALL_QGREYHOUND_PLUGIN)
 	find_library(PDAL_GREYHOUND_READER libpdal_plugin_reader_greyhound HINTS ${PDAL_LIBRARY_DIRS})
 	target_link_libraries(QGREYHOUND_PLUGIN  ${PDAL_GREYHOUND_READER})
 
-	find_library(ARBITER arbiter HINTS "C:\\libs\\lib")
+	find_library(ARBITER arbiter HINTS ${ARBITER_LIB})
 	target_link_libraries(QGREYHOUND_PLUGIN ${ARBITER})
 
 

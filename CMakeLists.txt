@@ -48,8 +48,8 @@ if (INSTALL_QGREYHOUND_PLUGIN)
 		message( SEND_ERROR "PDAL package not found: can't link" )
 	endif()
 
-	include_directories( "C:\\Users\\t.montaigu\\Projects\\pdal\\plugins\\greyhound\\io" )
-	include_directories( "C:\\libs\\include" ) # arbiter
+	include_directories( ${PDAL_GREYHOUND_INCLUDE} )
+	include_directories( ${ARBITER_INCLUDE} ) 
 
 	find_library(PDAL_GREYHOUND_READER libpdal_plugin_reader_greyhound HINTS ${PDAL_LIBRARY_DIRS})
 	target_link_libraries(QGREYHOUND_PLUGIN  ${PDAL_GREYHOUND_READER})

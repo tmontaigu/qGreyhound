@@ -99,16 +99,16 @@ int convert_view_to_cloud(pdal::PointViewPtr view, ccPointCloud *cloud)
 
 	for (size_t i = 0; i < view->size(); ++i) {
 		bbmin[0] = std::fmin(bbmin[0], view->getFieldAs<double>(pdal::Dimension::Id::X, i));
-		bbmin[1] = std::fmin(bbmin[1], view->getFieldAs<double>(pdal::Dimension::Id::X, i));
-		bbmin[2] = std::fmin(bbmin[2], view->getFieldAs<double>(pdal::Dimension::Id::X, i));
+		bbmin[1] = std::fmin(bbmin[1], view->getFieldAs<double>(pdal::Dimension::Id::Y, i));
+		bbmin[2] = std::fmin(bbmin[2], view->getFieldAs<double>(pdal::Dimension::Id::Z, i));
 	}
 
 	for (size_t i = 0; i < view->size(); ++i) {
 		cloud->addPoint(CCVector3(
 			view->getFieldAs<double>(pdal::Dimension::Id::X, i) - bbmin[0],
 			view->getFieldAs<double>(pdal::Dimension::Id::Y, i) - bbmin[1],
-			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - bbmin[2])
-		);
+			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - bbmin[2]
+		));
 	}
 
 	return view->size();

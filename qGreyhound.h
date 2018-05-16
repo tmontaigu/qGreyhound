@@ -25,19 +25,6 @@
 
 #include "GreyhoundResource.h"
 
-/** Replace the 'qGreyhound' string by your own plugin class name
-	and then check 'qGreyhound.cpp' for more directions (you
-	have to fill-in the blank methods. The most important one is the
-	'getActions' method.  This method should return all actions
-	(QAction objects). CloudCompare will automatically add them to an
-	icon in the plugin toolbar and to an entry in the plugin menu
-	(if your plugin returns several actions, CC will create a dedicated
-	toolbar and sub-menu). 
-	You are responsible to connect these actions to custom slots of your
-	plugin.
-	Look at the ccStdPluginInterface::m_app attribute to get access to
-	most of CC components (database, 3D views, console, etc.).
-**/
 class qGreyhound : public QObject, public ccStdPluginInterface
 {
 	Q_OBJECT
@@ -62,7 +49,6 @@ public:
 protected slots:
 
 	void doAction();
-	void getNextOctreeLevel();
 
 protected:
 
@@ -72,12 +58,10 @@ protected:
 		toolbar and an entry in the plugin menu.
 	**/
 	QAction* m_action;
-	QAction* m_getNextOctreeLevel;
 
 
 	//Greyhound related things
 	GreyhoundResource m_resource;
-	unsigned int m_curr_octree_lvl;
 	ccPointCloud *m_cloud;
 
 };

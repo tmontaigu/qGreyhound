@@ -44,7 +44,6 @@ qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
 	, ccStdPluginInterface(":/CC/plugin/qGreyhound/info.json")
 	, m_action(nullptr)
-	, m_getNextOctreeLevel(nullptr)
 	, m_cloud(nullptr)
 	, m_resource()
 {
@@ -72,17 +71,10 @@ QList<QAction*> qGreyhound::getActions()
 		m_action = new QAction("Download box", this);
 		m_action->setToolTip(getDescription());
 		m_action->setIcon(getIcon());
-		//connect appropriate signal
 		connect(m_action, SIGNAL(triggered()), this, SLOT(doAction()));
 	}
 
-	if (!m_getNextOctreeLevel)
-	{
-		m_getNextOctreeLevel = new QAction("Get next octree level", this);
-		connect(m_getNextOctreeLevel, SIGNAL(triggered()), this, SLOT(getNextOctreeLevel()));
-	}
-
-	return QList<QAction*> { m_action, m_getNextOctreeLevel };
+	return QList<QAction*> { m_action };
 }
 
 
@@ -157,11 +149,6 @@ std::vector<QString> ask_for_dimensions(std::vector<QString> available_dims)
 	return dm.checked_dimensions();
 }
 
-//This is an example of an action's slot called when the corresponding action
-//is triggered (i.e. the corresponding icon or menu entry is clicked in CC's
-//main interface). You can access to most of CC components (database,
-//3D views, console, etc.) via the 'm_app' attribute (ccMainAppInterface
-//object).
 void qGreyhound::doAction()
 {
 	//m_app should have already been initialized by CC when plugin is loaded!
@@ -216,18 +203,17 @@ void qGreyhound::doAction()
 		available_dims.push_back(dim_infos.value("name").toString());
 	}
 
-	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
-	m_curr_octree_lvl = infos.value("baseDepth").toInt();
-
 	Json::Value dims(Json::arrayValue);
 	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
 	for (const QString& name : requested_dims) {
 		dims.append(Json::Value(name.toStdString()));
 	}
 
+	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
+	uint32_t curr_octree_lvl = infos.value("baseDepth").toInt();
+
 	m_cloud = new ccPointCloud("Greyhound");
 	m_app->addToDB(m_cloud);
-
 
 	ccProgressDialog pdlg;
 	pdlg.setMethodTitle("Downloading");
@@ -241,14 +227,14 @@ void qGreyhound::doAction()
 		pdal::Options opts;
 		pdal::GreyhoundReader reader;
 		opts.add("url", text.toStdString());
-		opts.add("depth_begin", m_curr_octree_lvl);
-		opts.add("depth_end", m_curr_octree_lvl + 1);
+		opts.add("depth_begin", curr_octree_lvl);
+		opts.add("depth_end", curr_octree_lvl + 1);
 		opts.add("bounds", bounds.toJson());
 		opts.add("dims", dims);
 
 		reader.addOptions(opts);
 
-		auto f = [&]() {
+		auto pdal_download = [&]() {
 			try {
 				reader.prepare(table);
 				view_set = reader.execute(table);
@@ -262,7 +248,7 @@ void qGreyhound::doAction()
 
 		QFutureWatcher<void> downloader;
 		QObject::connect(&downloader, SIGNAL(finished()), &pdlg, SLOT(reset()));
-		downloader.setFuture(QtConcurrent::run(f));
+		downloader.setFuture(QtConcurrent::run(pdal_download));
 		pdlg.exec();
 		downloader.waitForFinished();
 
@@ -278,28 +264,8 @@ void qGreyhound::doAction()
 		m_cloud->refreshDisplay();
 		m_app->updateUI();
 
-		m_curr_octree_lvl++;
+		curr_octree_lvl++;
 	}		
-}
-
-void qGreyhound::getNextOctreeLevel()
-{
-	QByteArray points_data;
-	try {
-		QUrlQuery options;
-		options.addQueryItem("depth", QString::number(++m_curr_octree_lvl));
-		points_data = m_resource.read_query(options);
-	}
-	catch (const GreyhoundExc& e) {
-		m_app->dispToConsole(e.message(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-		return;
-	}
-
-	ccPointCloud *new_level = new ccPointCloud();
-	m_cloud->append(new_level, m_cloud->size());
-	m_cloud->prepareDisplayForRefresh();
-	m_cloud->refreshDisplay();
-	m_app->updateUI();
 }
 
 

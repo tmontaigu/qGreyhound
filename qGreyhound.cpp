@@ -11,31 +11,32 @@
 //#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
-//#                             COPYRIGHT: XXX                             #
+//#                             COPYRIGHT: Thomas Montaigu                 #
 //#                                                                        #
 //##########################################################################
 
-#include "qGreyhound.h"
 
 // Qt
 #include <QtGui>
 #include <QInputDialog>
-
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
-
 #include <QDataStream>
+#include <QEventLoop>
 
 #include <array>
+#include <cmath>
 
 #include <GreyhoundReader.hpp>
 #include <bounds.hpp>
-#include <cmath>
 
 #include <ccHObject.h>
 #include <ccScalarField.h>
 #include <ccColorScalesManager.h>
+
+#include "qGreyhound.h"
+#include "DimensionDialog.h"
 
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
@@ -144,6 +145,15 @@ int convert_view_to_cloud(pdal::PointViewPtr view, ccPointCloud *cloud)
 	return view->size();
 }
 
+std::vector<QString> ask_for_dimensions(std::vector<QString> available_dims) 
+{
+	QEventLoop loop;
+	DimensionDialog dm(available_dims);
+	dm.show();
+	QObject::connect(&dm, &DimensionDialog::finished, &loop, &QEventLoop::quit);
+	loop.exec();
+	return dm.checked_dimensions();
+}
 
 //This is an example of an action's slot called when the corresponding action
 //is triggered (i.e. the corresponding icon or menu entry is clicked in CC's
@@ -180,10 +190,6 @@ void qGreyhound::doAction()
 	}
 
 	const QUrl url(text);
-	QEventLoop loop;
-	QNetworkAccessManager qnam;
-	QNetworkRequest req;
-	QNetworkReply *reply = nullptr;
 
 	if (!url.isValid()) {
 		m_app->dispToConsole(QString("The Url '%1' doesn't look valid").arg(text), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -192,7 +198,6 @@ void qGreyhound::doAction()
 
 	m_resource.set_url(url);
 	QJsonObject infos;
-	QJsonObject count;
 
 	try {
 		infos = m_resource.info_query();
@@ -202,26 +207,27 @@ void qGreyhound::doAction()
 		return;
 	}
 
-	m_curr_octree_lvl = infos.value("baseDepth").toInt();
-	m_app->dispToConsole(QString("baseDepth: %1").arg(m_curr_octree_lvl), ccMainAppInterface::STD_CONSOLE_MESSAGE);
-	m_app->dispToConsole(QString("Downloading points of cloud (octree lvl %1)").arg(m_curr_octree_lvl), ccMainAppInterface::STD_CONSOLE_MESSAGE);
-	
+	QJsonArray schema = infos.value("schema").toArray();
+	std::vector<QString> available_dims;
+	for (const auto dim : schema) {
+		QJsonObject dim_infos = dim.toObject();
+		available_dims.push_back(dim_infos.value("name").toString());
+	}
+
 	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
-	m_app->dispToConsole(QString("AREA: %1").arg(bounds.area()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
-		
-	pdal::GreyhoundReader reader;
+
+	Json::Value dims(Json::arrayValue);
+	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
+	for (const QString& name : requested_dims) {
+		dims.append(Json::Value(name.toStdString()));
+	}
+
 	pdal::Options opts;
+	pdal::GreyhoundReader reader;
 	opts.add("url", text.toStdString());
 	//opts.add("depth_begin", m_curr_octree_lvl);
 	//opts.add("depth_end", m_curr_octree_lvl + 1);
 	opts.add("bounds", bounds.toJson());
-
-	Json::Value dims(Json::arrayValue);
-	dims.append(Json::Value("X"));
-	dims.append(Json::Value("Y"));
-	dims.append(Json::Value("Z"));
-	dims.append(Json::Value("Intensity"));
-	dims.append(Json::Value("Classification"));
 	opts.add("dims", dims);
 
 	reader.addOptions(opts);
@@ -234,14 +240,14 @@ void qGreyhound::doAction()
 		m_app->dispToConsole(QString("PrepareTable"));
 	}
 	catch (const std::exception &e) {
-		m_app->dispToConsole(QString("%1").arg(e.what()));
+		m_app->dispToConsole(QString("%1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
 	}
 
 	try {
 		pdal::PointViewSet view_set = reader.execute(table);
 		view_ptr = *view_set.begin();
-		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()));
 	}
 	catch (const std::exception &e) {
 		m_app->dispToConsole(e.what(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);

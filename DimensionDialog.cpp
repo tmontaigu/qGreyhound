@@ -21,7 +21,13 @@ void DimensionDialog::createListWidget(const std::vector<QString>& names) {
 	for (int i = 0; i < widget->count(); ++i) {
 		item = widget->item(i);
 		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-		item->setCheckState(Qt::Unchecked);
+		
+		if (item->text() == "X" || item->text() == "Y" || item->text() == "Z") {
+			item->setCheckState(Qt::Checked);
+		}
+		else {
+			item->setCheckState(Qt::Unchecked);
+		}
 	}
 }
 

@@ -24,6 +24,7 @@
 #include <QNetworkReply>
 #include <QDataStream>
 #include <QEventLoop>
+#include <QtConcurrent>
 
 #include <array>
 #include <cmath>
@@ -34,6 +35,7 @@
 #include <ccHObject.h>
 #include <ccScalarField.h>
 #include <ccColorScalesManager.h>
+#include <ccProgressDialog.h>
 
 #include "qGreyhound.h"
 #include "DimensionDialog.h"
@@ -215,6 +217,7 @@ void qGreyhound::doAction()
 	}
 
 	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
+	m_curr_octree_lvl = infos.value("baseDepth").toInt();
 
 	Json::Value dims(Json::arrayValue);
 	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
@@ -222,41 +225,61 @@ void qGreyhound::doAction()
 		dims.append(Json::Value(name.toStdString()));
 	}
 
-	pdal::Options opts;
-	pdal::GreyhoundReader reader;
-	opts.add("url", text.toStdString());
-	//opts.add("depth_begin", m_curr_octree_lvl);
-	//opts.add("depth_end", m_curr_octree_lvl + 1);
-	opts.add("bounds", bounds.toJson());
-	opts.add("dims", dims);
-
-	reader.addOptions(opts);
-
-	pdal::PointTable table;
-	pdal::PointViewPtr view_ptr;
-
-	try {
-		reader.prepare(table);
-		m_app->dispToConsole(QString("PrepareTable"));
-	}
-	catch (const std::exception &e) {
-		m_app->dispToConsole(QString("%1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-		return;
-	}
-
-	try {
-		pdal::PointViewSet view_set = reader.execute(table);
-		view_ptr = *view_set.begin();
-		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()));
-	}
-	catch (const std::exception &e) {
-		m_app->dispToConsole(e.what(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-		return;
-	}
-
 	m_cloud = new ccPointCloud("Greyhound");
-	convert_view_to_cloud(view_ptr, m_cloud);
 	m_app->addToDB(m_cloud);
+
+
+	ccProgressDialog pdlg;
+	pdlg.setMethodTitle("Downloading");
+	pdlg.setRange(0, 0);
+	pdlg.start();
+	while (true) {
+		pdal::PointTable table;
+		pdal::PointViewSet view_set;
+		pdal::PointViewPtr view_ptr;
+
+		pdal::Options opts;
+		pdal::GreyhoundReader reader;
+		opts.add("url", text.toStdString());
+		opts.add("depth_begin", m_curr_octree_lvl);
+		opts.add("depth_end", m_curr_octree_lvl + 1);
+		opts.add("bounds", bounds.toJson());
+		opts.add("dims", dims);
+
+		reader.addOptions(opts);
+
+		auto f = [&]() {
+			try {
+				reader.prepare(table);
+				view_set = reader.execute(table);
+			}
+			catch (const std::exception &e) {
+				m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				return;
+			}
+		};
+
+
+		QFutureWatcher<void> downloader;
+		QObject::connect(&downloader, SIGNAL(finished()), &pdlg, SLOT(reset()));
+		downloader.setFuture(QtConcurrent::run(f));
+		pdlg.exec();
+		downloader.waitForFinished();
+
+		view_ptr = *view_set.begin();
+		if (view_ptr->size() == 0) {
+			break;
+		}
+		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()));
+		ccPointCloud *new_level = new ccPointCloud();
+		convert_view_to_cloud(view_ptr, new_level);
+		m_cloud->append(new_level, m_cloud->size());
+		m_cloud->prepareDisplayForRefresh();
+		m_cloud->refreshDisplay();
+		m_app->updateUI();
+
+		m_curr_octree_lvl++;
+	}		
 }
 
 void qGreyhound::getNextOctreeLevel()

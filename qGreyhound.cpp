@@ -78,7 +78,7 @@ QList<QAction*> qGreyhound::getActions()
 }
 
 
-int convert_view_to_cloud(pdal::PointViewPtr view, ccPointCloud *cloud)
+int convert_view_to_cloud(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud *cloud)
 {
 	if (!cloud) {
 		return -1;
@@ -115,7 +115,7 @@ int convert_view_to_cloud(pdal::PointViewPtr view, ccPointCloud *cloud)
 			id == pdal::Dimension::Id::Z) {
 			continue;
 		}
-		ccScalarField *sf = new ccScalarField(pdal::Dimension::name(id).c_str());
+		ccScalarField *sf = new ccScalarField(layout->dimName(id).c_str());
 		sf->reserve(view->size());
 
 		for (size_t i = 0; i < view->size(); ++i) {
@@ -258,7 +258,7 @@ void qGreyhound::doAction()
 		}
 		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()));
 		ccPointCloud *new_level = new ccPointCloud();
-		convert_view_to_cloud(view_ptr, new_level);
+		convert_view_to_cloud(view_ptr, table.layout(), new_level);
 		m_cloud->append(new_level, m_cloud->size());
 		m_cloud->prepareDisplayForRefresh();
 		m_cloud->refreshDisplay();

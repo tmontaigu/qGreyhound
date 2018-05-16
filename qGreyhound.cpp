@@ -108,6 +108,37 @@ int convert_view_to_cloud(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, 
 		));
 	}
 
+	pdal::Dimension::IdList color_ids{ pdal::Dimension::Id::Red, pdal::Dimension::Id::Green, pdal::Dimension::Id::Blue };
+	bool has_all_colors = true;
+	for (auto color_id : color_ids) {
+		if (!view->hasDim(color_id)) {
+			has_all_colors = false;
+			break;
+		}
+	}
+
+	if (has_all_colors) {
+		if (!cloud->reserveTheRGBTable()) {
+			ccLog::Error("Failed to allocate memory for the colors.");
+		}
+		
+		std::array<uint16_t, 3> rgb_16 { 0,0,0 };
+		std::array<ColorCompType, 3> rgb { 0,0,0 };
+		for (size_t i = 0; i < view->size(); ++i) {
+			rgb_16[0] = view->getFieldAs<uint16_t>(pdal::Dimension::Id::Red, i);
+			rgb_16[1] = view->getFieldAs<uint16_t>(pdal::Dimension::Id::Green, i);
+			rgb_16[2] = view->getFieldAs<uint16_t>(pdal::Dimension::Id::Blue, i);
+
+			//TODO: Some resources may not have colors coded on the 16 bits
+			// thus not requiring the shift
+			rgb[0] = static_cast<ColorCompType>(rgb_16[0] >> 8);
+			rgb[1] = static_cast<ColorCompType>(rgb_16[1] >> 8);
+			rgb[2] = static_cast<ColorCompType>(rgb_16[2] >> 8);
+			cloud->addRGBColor(rgb.data());
+		}
+		cloud->showColors(true);
+	}
+
 
 	for (pdal::Dimension::Id id : view->dims()) {
 		if (id == pdal::Dimension::Id::X ||

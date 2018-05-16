@@ -22,7 +22,6 @@ public:
 
 public slots:
 	void highlightChecked(QListWidgetItem* item);
-	void save();
 
 private:
 	QListWidget * widget;

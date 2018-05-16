@@ -34,8 +34,7 @@ void DimensionDialog::createListWidget(const std::vector<QString>& names) {
 void DimensionDialog::createOtherWidgets() {
 	viewBox = new QGroupBox(tr("Required components"));
 	buttonBox = new QDialogButtonBox;
-	saveButton = buttonBox->addButton(QDialogButtonBox::Save);
-	closeButton = buttonBox->addButton(QDialogButtonBox::Close);
+	closeButton = buttonBox->addButton(QDialogButtonBox::Ok);
 }
 
 void DimensionDialog::createLayout() {
@@ -56,7 +55,6 @@ void DimensionDialog::createLayout() {
 void DimensionDialog::createConnections() {
 	QObject::connect(widget, SIGNAL(itemChanged(QListWidgetItem*)),
 		this, SLOT(highlightChecked(QListWidgetItem*)));
-	QObject::connect(saveButton, SIGNAL(clicked()), this, SLOT(save()));
 	QObject::connect(closeButton, SIGNAL(clicked()), this, SLOT(close()));
 }
 
@@ -65,27 +63,6 @@ void DimensionDialog::highlightChecked(QListWidgetItem *item) {
 		item->setBackgroundColor(QColor("#ffffb2"));
 	else
 		item->setBackgroundColor(QColor("#ffffff"));
-}
-
-void DimensionDialog::save() {
-
-	QFile file("required_components.txt");
-	if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-		return;
-
-	QTextStream out(&file);
-	out << "Required components:" << "\n";
-
-	QListWidgetItem* item = 0;
-	for (int i = 0; i < widget->count(); ++i) {
-		item = widget->item(i);
-		if (item->checkState() == Qt::Checked)
-			out << item->text() << "\n";
-	}
-
-	QMessageBox::information(this, tr("Checkable list in Qt"),
-		tr("Required components were saved."),
-		QMessageBox::Ok);
 }
 
 

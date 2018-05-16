@@ -277,5 +277,5 @@ QIcon qGreyhound::getIcon() const
 	//open qGreyhound.qrc (text file), update the "prefix" and the
 	//icon(s) filename(s). Then save it with the right name (yourPlugin.qrc).
 	//(eventually, remove the original qGreyhound.qrc file!)
-	return QIcon(":/CC/plugin/qGreyHound/icon.png");
+	return QIcon(":/CC/plugin/qGreyhound/icon.png");
 }

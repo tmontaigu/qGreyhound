@@ -8,5 +8,15 @@
 			"name": "Thomas Montaigu",
 			"email": "thomas.montaigu@laposte.net"
 		}
+	],
+	"references": [
+		{
+			"text": "Uses PDAL",
+			"url":  "https://pdal.io"
+		},
+		{
+			"text": "Greyhoud Website",
+			"url":  "https://greyhound.io"
+		}
 	]
 }

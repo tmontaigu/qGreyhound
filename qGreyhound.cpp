@@ -283,11 +283,9 @@ void qGreyhound::doAction()
 	m_cloud = new ccPointCloud("Greyhound");
 	m_app->addToDB(m_cloud);
 
-	ccProgressDialog pdlg;
-	pdlg.setMethodTitle("Downloading");
-	pdlg.setRange(0, 0);
-	pdlg.start();
+
 	while (true) {
+		std::exception_ptr eptr(nullptr);
 		pdal::PointTable table;
 		pdal::PointViewSet view_set;
 		pdal::PointViewPtr view_ptr;
@@ -307,19 +305,28 @@ void qGreyhound::doAction()
 				reader.prepare(table);
 				view_set = reader.execute(table);
 			}
-			catch (const std::exception &e) {
-				m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-				return;
+			catch (...) {
+				eptr = std::current_exception();
 			}
 		};
 
 
 		QFutureWatcher<void> downloader;
-		QObject::connect(&downloader, SIGNAL(finished()), &pdlg, SLOT(reset()));
+		QEventLoop loop;
 		downloader.setFuture(QtConcurrent::run(pdal_download));
-		pdlg.exec();
+		QObject::connect(&downloader, SIGNAL(finished()), &loop, SLOT(quit()));
+		loop.exec();
 		downloader.waitForFinished();
 
+		try {
+			if (eptr) {
+				std::rethrow_exception(eptr);
+			}
+		}
+		catch (const std::exception& e) {
+			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+			return;
+		}
 		view_ptr = *view_set.begin();
 		if (view_ptr->size() == 0) {
 			break;

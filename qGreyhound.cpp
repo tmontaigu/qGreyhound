@@ -40,6 +40,8 @@
 #include "qGreyhound.h"
 #include "DimensionDialog.h"
 
+#include "ui_bbox_form.h"
+
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
 	, ccStdPluginInterface(":/CC/plugin/qGreyhound/info.json")
@@ -58,6 +60,7 @@ void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 	//if (m_action)
 	//	m_action->setEnabled(!selectedEntities.empty());
 }
+
 
 //This method returns all 'actions' of your plugin.
 //It will be called only once, when plugin is loaded.
@@ -180,6 +183,32 @@ std::vector<QString> ask_for_dimensions(std::vector<QString> available_dims)
 	return dm.checked_dimensions();
 }
 
+pdal::greyhound::Bounds ask_for_bbox()
+{
+	QEventLoop loop;
+	Ui::BboxDialog ui;
+	QDialog d;
+	ui.setupUi(&d);
+	QObject::connect(&d, &QDialog::finished, &loop, &QEventLoop::quit);
+	d.show();
+	loop.exec();
+
+	if (ui.xmin->text().isEmpty() ||
+		ui.ymin->text().isEmpty() ||
+		ui.xmax->text().isEmpty() ||
+		ui.ymax->text().isEmpty())
+	{
+
+		return pdal::greyhound::Bounds();
+	}
+	return pdal::greyhound::Bounds(
+			ui.xmin->text().toDouble(),
+			ui.ymin->text().toDouble(),
+			ui.xmax->text().toDouble(),
+			ui.ymax->text().toDouble()
+		);
+}
+
 void qGreyhound::doAction()
 {
 	//m_app should have already been initialized by CC when plugin is loaded!
@@ -240,7 +269,15 @@ void qGreyhound::doAction()
 		dims.append(Json::Value(name.toStdString()));
 	}
 
-	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
+
+	//pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
+	pdal::greyhound::Bounds bounds = ask_for_bbox();
+	if (bounds.empty()) {
+		m_app->dispToConsole("Empty bbox");
+		return;
+	}
+
+
 	uint32_t curr_octree_lvl = infos.value("baseDepth").toInt();
 
 	m_cloud = new ccPointCloud("Greyhound");
@@ -296,7 +333,7 @@ void qGreyhound::doAction()
 		m_app->updateUI();
 
 		curr_octree_lvl++;
-	}		
+	}
 }
 
 

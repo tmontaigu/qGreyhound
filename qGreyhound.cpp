@@ -46,9 +46,8 @@
 qGreyhound::qGreyhound(QObject* parent/*=0*/)
 	: QObject(parent)
 	, ccStdPluginInterface(":/CC/plugin/qGreyhound/info.json")
-	, m_action(nullptr)
-	, m_cloud(nullptr)
-	, m_resource()
+	, m_download_bounding_box(nullptr)
+	, m_connect_to_resource(nullptr)
 {
 }
 
@@ -58,8 +57,13 @@ qGreyhound::qGreyhound(QObject* parent/*=0*/)
 //plugin deals only with clouds, call 'm_action->setEnabled(false)'
 void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 {
-	//if (m_action)
-	//	m_action->setEnabled(!selectedEntities.empty());
+	m_download_bounding_box->setEnabled(!selectedEntities.empty());
+
+	for (const auto& entity : selectedEntities)
+	{
+		qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(entity);
+		m_download_bounding_box->setEnabled(r != nullptr);
+	}
 }
 
 
@@ -67,18 +71,23 @@ void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 //It will be called only once, when plugin is loaded.
 QList<QAction*> qGreyhound::getActions()
 {
-	//default action (if it has not been already created, it's the moment to do it)
-	if (!m_action)
+	if (!m_connect_to_resource)
 	{
-		//here we use the default plugin name, description and icon,
-		//but each action can have its own!
-		m_action = new QAction("Download box", this);
-		m_action->setToolTip(getDescription());
-		m_action->setIcon(getIcon());
-		connect(m_action, SIGNAL(triggered()), this, SLOT(doAction()));
+		m_connect_to_resource = new QAction("Connect to resource", this);
+		m_connect_to_resource->setToolTip(getDescription());
+		m_connect_to_resource->setIcon(getIcon());
+		connect(m_connect_to_resource, &QAction::triggered, this, &qGreyhound::connect_to_resource);
 	}
 
-	return QList<QAction*> { m_action };
+	if (!m_download_bounding_box)
+	{
+		m_download_bounding_box = new QAction("Download box", this);
+		m_download_bounding_box->setToolTip(getDescription());
+		m_download_bounding_box->setIcon(getIcon());
+		connect(m_download_bounding_box, &QAction::triggered, this, &qGreyhound::download_bounding_box);
+	}
+
+	return QList<QAction*> { m_download_bounding_box, m_connect_to_resource };
 }
 
 std::vector<QString> ask_for_dimensions(std::vector<QString> available_dims) 
@@ -117,19 +126,13 @@ pdal::greyhound::Bounds ask_for_bbox()
 		);
 }
 
-void qGreyhound::doAction()
-{
-	//m_app should have already been initialized by CC when plugin is loaded!
-	//(--> pure internal check)
-	assert(m_app);
-	if (!m_app) {
-		return;
-	}
 
+void qGreyhound::connect_to_resource()
+{
 	bool ok = false;
 	QString text = QInputDialog::getText(
 		(QWidget*)m_app->getMainWindow(), 
-		tr("QInputDialog::getText()"),
+		tr("Connect to Greyhound"),
 		tr("Greyhound ressource url"), 
 		QLineEdit::Normal,
 		"http://<url>:<port>/resource/<resource_name>",
@@ -153,16 +156,34 @@ void qGreyhound::doAction()
 		return;
 	}
 
-	m_resource.set_url(url);
-	QJsonObject infos;
+	qGreyhoundResource *resource(nullptr);
 
 	try {
-		infos = m_resource.info_query();
+		resource = new qGreyhoundResource(url);
 	}
 	catch (const GreyhoundExc& e) {
+		m_app->dispToConsole(url.toString(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		m_app->dispToConsole(e.message(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
 	}
+
+	m_app->addToDB(resource);
+}
+
+
+void qGreyhound::download_bounding_box()
+{
+	//m_app should have already been initialized by CC when plugin is loaded!
+	//(--> pure internal check)
+	assert(m_app);
+	
+	const auto& selected_ent = m_app->getSelectedEntities();
+	qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(selected_ent.at(0));
+	if (!r) {
+		return;
+	}
+
+	const QJsonObject& infos = r->infos();
 
 	QJsonArray schema = infos.value("schema").toArray();
 	std::vector<QString> available_dims;
@@ -193,10 +214,12 @@ void qGreyhound::doAction()
 	//}
 
 
+		
 	uint32_t curr_octree_lvl = infos.value("baseDepth").toInt();
 
-	m_cloud = new ccPointCloud("Greyhound");
-	m_app->addToDB(m_cloud);
+	ccPointCloud *cloud = new ccPointCloud("Greyhound");
+	m_app->addToDB(cloud);
+	r->addChild(cloud);
 
 	while (true) {
 		std::exception_ptr eptr(nullptr);
@@ -206,7 +229,7 @@ void qGreyhound::doAction()
 
 		pdal::Options opts;
 		pdal::GreyhoundReader reader;
-		opts.add("url", text.toStdString());
+		opts.add("url", r->url().toString().toStdString());
 		opts.add("depth_begin", curr_octree_lvl);
 		opts.add("depth_end", curr_octree_lvl + 1);
 		opts.add("bounds", bounds.toJson());
@@ -247,7 +270,6 @@ void qGreyhound::doAction()
 		}
 		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()));
 		PDALConverter converter;
-		converter.set_shift(offset);
 		auto cloud_ptr = converter.convert(view_ptr, table.layout());
 		if (!cloud_ptr) {
 			m_app->dispToConsole(QString("[qGreyhound] Something went wrong when converting th cloud"));
@@ -256,10 +278,10 @@ void qGreyhound::doAction()
 
 		// In case the user deletes the cloud from the DB Tree
 		// while data is still being added
-		if (m_cloud) {
-			m_cloud->append(cloud_ptr.release(), m_cloud->size());
-			m_cloud->prepareDisplayForRefresh();
-			m_cloud->refreshDisplay();
+		if (cloud) {
+			cloud->append(cloud_ptr.release(), cloud->size());
+			cloud->prepareDisplayForRefresh();
+			cloud->refreshDisplay();
 			m_app->updateUI();
 		}
 		else {

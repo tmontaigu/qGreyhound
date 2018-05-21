@@ -4,45 +4,34 @@
 #include <QUrlQuery>
 #include <QJsonDocument>
 #include <QJsonObject>
-
 #include <QEventLoop>
 
 
-GreyhoundResource::GreyhoundResource(QUrl url)
-	: m_base_url(url)
-	, m_reply(nullptr)
+QString resource_name_from_url(const QString& url) 
 {
+	QStringList splits = url.split('/');
+	return splits.at(splits.size() - 1);
 }
 
-GreyhoundResource::GreyhoundResource()
-	: m_base_url()
-	, m_reply(nullptr)
+QJsonObject greyhound_info(QUrl url)
 {
-}
+	QNetworkAccessManager qnam;
+	QNetworkRequest request;
+	QNetworkReply *reply(nullptr);
 
+	const QUrl info_url(url.toString() + "/info");
+	request.setUrl(info_url);
+	reply = qnam.get(request);
 
-GreyhoundResource::~GreyhoundResource()
-{
-}
-
-void GreyhoundResource::set_url(QUrl url) {
-	m_base_url = url;
-}
-
-QJsonObject GreyhoundResource::info_query()
-{
 	QEventLoop loop;
-	const QUrl info_url(m_base_url.toString() + "/info");
-	m_request.setUrl(info_url);
-	m_reply = m_qnam.get(m_request);
-	QObject::connect(m_reply, SIGNAL(finished()), &loop, SLOT(quit()));
+	QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 
-	if (m_reply->error() != QNetworkReply::NoError) {
-		throw GreyhoundExc(m_reply->errorString());
+	if (reply->error() != QNetworkReply::NoError) {
+		throw GreyhoundExc(reply->errorString());
 	}
 
-	QJsonDocument document = QJsonDocument::fromJson(m_reply->readAll());
+	QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
 	
 	if (!document.isObject()) {
 		throw GreyhoundExc("Recieved info is not a proper json object");
@@ -50,24 +39,11 @@ QJsonObject GreyhoundResource::info_query()
 	return document.object();
 }
 
-// Nice copy pasta
-QJsonObject GreyhoundResource::count_query()
+
+
+qGreyhoundResource::qGreyhoundResource(QUrl url)
+	: ccCustomHObject(QString("[Greyhound] %1").arg(resource_name_from_url(url.toString())))
+	, m_url(std::move(url))
+	, m_infos(std::move(greyhound_info(m_url)))
 {
-	QEventLoop loop;
-	const QUrl info_url(m_base_url.toString() + "/count");
-	m_request.setUrl(info_url);
-	m_reply = m_qnam.get(m_request);
-	QObject::connect(m_reply, SIGNAL(finished()), &loop, SLOT(quit()));
-	loop.exec();
-
-	if (m_reply->error() != QNetworkReply::NoError) {
-		throw GreyhoundExc(m_reply->errorString());
-	}
-
-	QJsonDocument document = QJsonDocument::fromJson(m_reply->readAll());
-	
-	if (!document.isObject()) {
-		throw GreyhoundExc("Recieved info is not a proper json object");
-	}
-	return document.object();
 }

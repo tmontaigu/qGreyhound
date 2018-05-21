@@ -91,25 +91,17 @@ int convert_view_to_cloud(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, 
 		return -1;
 	}
 
-	CCVector3d bbmin{
-		std::numeric_limits<double>::max(),
-		std::numeric_limits<double>::max(),
-		std::numeric_limits<double>::max()
-	};
-
-	for (size_t i = 0; i < view->size(); ++i) {
-		bbmin[0] = std::fmin(bbmin[0], view->getFieldAs<double>(pdal::Dimension::Id::X, i));
-		bbmin[1] = std::fmin(bbmin[1], view->getFieldAs<double>(pdal::Dimension::Id::Y, i));
-		bbmin[2] = std::fmin(bbmin[2], view->getFieldAs<double>(pdal::Dimension::Id::Z, i));
-	}
+	pdal::BOX3D bounds;
+	view->calculateBounds(bounds);
 
 	for (size_t i = 0; i < view->size(); ++i) {
 		cloud->addPoint(CCVector3(
-			view->getFieldAs<double>(pdal::Dimension::Id::X, i) - bbmin[0],
-			view->getFieldAs<double>(pdal::Dimension::Id::Y, i) - bbmin[1],
-			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - bbmin[2]
+			view->getFieldAs<double>(pdal::Dimension::Id::X, i) - bounds.minx,
+			view->getFieldAs<double>(pdal::Dimension::Id::Y, i) - bounds.miny,
+			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - bounds.minz
 		));
 	}
+	cloud->setGlobalShift(bounds.minx, bounds.miny, bounds.minz);
 
 	pdal::Dimension::IdList color_ids{ pdal::Dimension::Id::Red, pdal::Dimension::Id::Green, pdal::Dimension::Id::Blue };
 	bool has_all_colors = true;

@@ -11,7 +11,7 @@
 //#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
-//#                             COPYRIGHT: XXX                             #
+//#                             COPYRIGHT: Thomas Montaigu                 #
 //#                                                                        #
 //##########################################################################
 
@@ -48,7 +48,8 @@ public:
 
 protected slots:
 
-	void doAction();
+	void connect_to_resource();
+	void download_bounding_box();
 
 protected:
 
@@ -57,13 +58,8 @@ protected:
 		All actions will correspond to an icon in the dedicated
 		toolbar and an entry in the plugin menu.
 	**/
-	QAction* m_action;
-
-
-	//Greyhound related things
-	GreyhoundResource m_resource;
-	ccPointCloud *m_cloud;
-
+	QAction* m_download_bounding_box;
+	QAction* m_connect_to_resource;
 };
 
 #endif

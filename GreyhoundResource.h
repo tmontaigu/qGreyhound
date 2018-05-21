@@ -4,32 +4,30 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-
 #include <QException>
+#include <QJsonObject>
 
-class GreyhoundResource
+#include <ccCustomObject.h>
+
+
+class qGreyhoundResource : public ccCustomHObject
 {
 public:
-	GreyhoundResource(QUrl url);
-	GreyhoundResource();
-	~GreyhoundResource();
+	qGreyhoundResource(QUrl url);
+	bool isSerializable() const override { return false; };
+	static QString DefautMetaDataClassName() { return "qGreyHoundResource";  };
+	static QString DefaultMetaDataPluginName() { return "qGreyhound"; };
 
-
-	// Some setters
-	void set_url(QUrl url);
-	const QUrl& url() { return m_base_url; }
-
-	// Query related functions
-	QJsonObject info_query();
-	QJsonObject count_query();
-
+	QUrl url() const { return m_url; }
+	const QJsonObject& infos() const { return m_infos; }
 
 private:
-	QUrl m_base_url;
-	QNetworkAccessManager m_qnam;
-	QNetworkRequest m_request;
-	QNetworkReply *m_reply;
+	QUrl m_url;
+	QJsonObject m_infos;
 };
+
+
+
 
 class GreyhoundExc : public QException
 
@@ -48,3 +46,5 @@ private:
 	QString m_msg;
 };
 
+QString resource_name_from_url(const QString& url);
+QJsonObject greyhound_info(QUrl url);

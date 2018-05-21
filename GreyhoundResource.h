@@ -22,7 +22,6 @@ public:
 	// Query related functions
 	QJsonObject info_query();
 	QJsonObject count_query();
-	QByteArray read_query(QUrlQuery options);
 
 
 private:

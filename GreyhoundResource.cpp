@@ -71,22 +71,3 @@ QJsonObject GreyhoundResource::count_query()
 	}
 	return document.object();
 }
-
-QByteArray GreyhoundResource::read_query(QUrlQuery options)
-{
-	QEventLoop loop;
-	QUrl read_url(m_base_url.toString() + "/read");
-	options.addQueryItem("schema", "[{\"name\":\"X\",\"type\":\"floating\",\"size\":\"8\"},{\"name\":\"Y\",\"type\":\"floating\",\"size\":\"8\"},{\"name\":\"Z\",\"type\":\"floating\",\"size\":\"8\"}]");
-	read_url.setQuery(options);
-
-	m_request.setUrl(read_url);
-	m_reply = m_qnam.get(m_request);
-	QObject::connect(m_reply, SIGNAL(finished()), &loop, SLOT(quit()));
-	loop.exec();
-
-	if (m_reply->error() != QNetworkReply::NoError) {
-		throw GreyhoundExc(m_reply->errorString());
-	}
-
-	return m_reply->readAll();
-}

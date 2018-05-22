@@ -1,6 +1,7 @@
 <RCC>
   <qresource prefix="/CC/plugin/qGreyhound" >
     <file>icon.png</file>
+	<file>dl_icon.png</file>
     <file>info.json</file>
   </qresource>
 </RCC>

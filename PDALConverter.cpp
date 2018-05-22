@@ -54,6 +54,9 @@ PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout)
 void 
 PDALConverter::convert_rgb(pdal::PointViewPtr view, ccPointCloud *out_cloud)
 {
+	if (!out_cloud->size()) {
+		return;
+	}
 	if (!out_cloud->reserveTheRGBTable()) {
 		ccLog::Error("Failed to allocate memory for the colors.");
 	}

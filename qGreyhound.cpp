@@ -75,7 +75,7 @@ QList<QAction*> qGreyhound::getActions()
 	if (!m_download_bounding_box) {
 		m_download_bounding_box = new QAction("Download Bbox", this);
 		m_download_bounding_box->setToolTip("Download points in a bounding box from a resource");
-		m_download_bounding_box->setIcon(getIcon());
+		m_download_bounding_box->setIcon(QIcon(":/CC/plugin/qGreyhound/dl_icon.png"));
 		connect(m_download_bounding_box, &QAction::triggered, this, &qGreyhound::download_bounding_box);
 	}
 

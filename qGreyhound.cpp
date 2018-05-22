@@ -118,6 +118,40 @@ pdal::greyhound::Bounds ask_for_bbox()
 		);
 }
 
+std::unique_ptr<ccPointCloud> download_cloud(pdal::Options opts)
+{
+	std::exception_ptr eptr(nullptr);
+	pdal::PointTable table;
+	pdal::PointViewSet view_set;
+	pdal::GreyhoundReader reader;
+
+	reader.addOptions(opts);
+
+	auto pdal_download = [&]() {
+		try {
+			reader.prepare(table);
+			view_set = reader.execute(table);
+		}
+		catch (...) {
+			eptr = std::current_exception();
+		}
+	};
+
+	QFutureWatcher<void> downloader;
+	QEventLoop loop;
+	downloader.setFuture(QtConcurrent::run(pdal_download));
+	QObject::connect(&downloader, SIGNAL(finished()), &loop, SLOT(quit()));
+	loop.exec();
+	downloader.waitForFinished();
+
+	if (eptr) {
+		std::rethrow_exception(eptr);
+	}
+	pdal::PointViewPtr view_ptr = *view_set.begin();
+	PDALConverter converter;
+	return converter.convert(view_ptr, table.layout());
+}
+
 
 void qGreyhound::connect_to_resource()
 {
@@ -169,6 +203,7 @@ void qGreyhound::download_bounding_box()
 		return;
 	}
 
+	uint32_t curr_octree_lvl = r->info().base_depth();
 	std::vector<QString> available_dims(std::move(r->info().available_dim_name()));
 	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
 
@@ -184,74 +219,37 @@ void qGreyhound::download_bounding_box()
 	//	m_app->dispToConsole("Empty bbox");
 	//	return;
 	//}
-
-
 		
-	uint32_t curr_octree_lvl = r->info().base_depth();
 
 	ccPointCloud *cloud = new ccPointCloud("Greyhound");
 	m_app->addToDB(cloud);
 	r->addChild(cloud);
 
 	while (true) {
-		std::exception_ptr eptr(nullptr);
-		pdal::PointTable table;
-		pdal::PointViewSet view_set;
-		pdal::PointViewPtr view_ptr;
-
 		pdal::Options opts;
-		pdal::GreyhoundReader reader;
 		opts.add("url", r->url().toString().toStdString());
 		opts.add("depth_begin", curr_octree_lvl);
 		opts.add("depth_end", curr_octree_lvl + 1);
 		opts.add("bounds", bounds.toJson());
 		opts.add("dims", dims);
 
-		reader.addOptions(opts);
-
-		auto pdal_download = [&]() {
-			try {
-				reader.prepare(table);
-				view_set = reader.execute(table);
-			}
-			catch (...) {
-				eptr = std::current_exception();
-			}
-		};
-
-
-		QFutureWatcher<void> downloader;
-		QEventLoop loop;
-		downloader.setFuture(QtConcurrent::run(pdal_download));
-		QObject::connect(&downloader, SIGNAL(finished()), &loop, SLOT(quit()));
-		loop.exec();
-		downloader.waitForFinished();
-
+		std::unique_ptr<ccPointCloud> downloaded_cloud(nullptr);
 		try {
-			if (eptr) {
-				std::rethrow_exception(eptr);
-			}
+			downloaded_cloud = download_cloud(opts);
 		}
 		catch (const std::exception& e) {
 			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return;
 		}
-		view_ptr = *view_set.begin();
-		if (view_ptr->size() == 0) {
+		if (downloaded_cloud->size() == 0) {
 			break;
 		}
-		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(view_ptr->size()));
-		PDALConverter converter;
-		auto cloud_ptr = converter.convert(view_ptr, table.layout());
-		if (!cloud_ptr) {
-			m_app->dispToConsole(QString("[qGreyhound] Something went wrong when converting the cloud"));
-			return;
-		}
+		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(downloaded_cloud->size()));
 
 		// In case the user deletes the cloud from the DB Tree
 		// while data is still being added
 		if (cloud) {
-			cloud->append(cloud_ptr.release(), cloud->size());
+			cloud->append(downloaded_cloud.release(), cloud->size());
 			cloud->prepareDisplayForRefresh();
 			cloud->refreshDisplay();
 			m_app->updateUI();

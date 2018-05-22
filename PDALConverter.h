@@ -1,3 +1,5 @@
+#pragma once
+
 #include <pdal/pdal.hpp>
 
 #include <ccPointCloud.h>

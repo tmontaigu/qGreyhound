@@ -27,6 +27,7 @@
 #include <QtConcurrent>
 
 #include <array>
+#include <queue>
 #include <cmath>
 
 #include <GreyhoundReader.hpp>
@@ -40,6 +41,7 @@
 #include "qGreyhound.h"
 #include "DimensionDialog.h"
 #include "PDALConverter.h"
+#include "GreyhoundDownloader.h"
 
 #include "ui_bbox_form.h"
 
@@ -107,7 +109,6 @@ pdal::greyhound::Bounds ask_for_bbox()
 		ui.xmax->text().isEmpty() ||
 		ui.ymax->text().isEmpty())
 	{
-
 		return pdal::greyhound::Bounds();
 	}
 	return pdal::greyhound::Bounds(
@@ -118,39 +119,6 @@ pdal::greyhound::Bounds ask_for_bbox()
 		);
 }
 
-std::unique_ptr<ccPointCloud> download_cloud(pdal::Options opts)
-{
-	std::exception_ptr eptr(nullptr);
-	pdal::PointTable table;
-	pdal::PointViewSet view_set;
-	pdal::GreyhoundReader reader;
-
-	reader.addOptions(opts);
-
-	auto pdal_download = [&]() {
-		try {
-			reader.prepare(table);
-			view_set = reader.execute(table);
-		}
-		catch (...) {
-			eptr = std::current_exception();
-		}
-	};
-
-	QFutureWatcher<void> downloader;
-	QEventLoop loop;
-	downloader.setFuture(QtConcurrent::run(pdal_download));
-	QObject::connect(&downloader, SIGNAL(finished()), &loop, SLOT(quit()));
-	loop.exec();
-	downloader.waitForFinished();
-
-	if (eptr) {
-		std::rethrow_exception(eptr);
-	}
-	pdal::PointViewPtr view_ptr = *view_set.begin();
-	PDALConverter converter;
-	return converter.convert(view_ptr, table.layout());
-}
 
 
 void qGreyhound::connect_to_resource()
@@ -190,11 +158,8 @@ void qGreyhound::connect_to_resource()
 	m_app->addToDB(resource);
 }
 
-
 void qGreyhound::download_bounding_box()
 {
-	//m_app should have already been initialized by CC when plugin is loaded!
-	//(--> pure internal check)
 	assert(m_app);
 	
 	const auto& selected_ent = m_app->getSelectedEntities();
@@ -203,7 +168,8 @@ void qGreyhound::download_bounding_box()
 		return;
 	}
 
-	uint32_t curr_octree_lvl = r->info().base_depth();
+	uint32_t start_level = r->info().base_depth();
+	uint32_t curr_octree_lvl = start_level;
 	std::vector<QString> available_dims(std::move(r->info().available_dim_name()));
 	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
 
@@ -221,55 +187,64 @@ void qGreyhound::download_bounding_box()
 	//}
 		
 
-	ccPointCloud *cloud = new ccPointCloud("Greyhound");
-	m_app->addToDB(cloud);
-	r->addChild(cloud);
+	CCVector3d shift = r->info().bounds_conforming_min();
+	PDALConverter converter;
+	converter.set_shift(shift);
+	pdal::Options opts;
+	opts.add("url", r->url().toString().toStdString());
+	opts.add("dims", dims);
 
-	while (true) {
-		pdal::Options opts;
-		opts.add("url", r->url().toString().toStdString());
-		opts.add("depth_begin", curr_octree_lvl);
-		opts.add("depth_end", curr_octree_lvl + 1);
-		opts.add("bounds", bounds.toJson());
-		opts.add("dims", dims);
+	ccPointCloud *cloud = nullptr;
+	while (true)
+	{
+		pdal::Options q_opts(opts);
+		q_opts.add("depth_begin", curr_octree_lvl);
+		q_opts.add("depth_end", curr_octree_lvl + 1);
+		q_opts.add("bounds", bounds.toJson());
 
 		std::unique_ptr<ccPointCloud> downloaded_cloud(nullptr);
 		try {
-			downloaded_cloud = download_cloud(opts);
+			downloaded_cloud = download_and_convert_cloud(q_opts, converter);
 		}
 		catch (const std::exception& e) {
 			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return;
 		}
-		if (downloaded_cloud->size() == 0) {
-			break;
-		}
-		m_app->dispToConsole(QString("[qGreyhound] We got a cloud compare cloud with %1 points").arg(downloaded_cloud->size()));
 
-		// In case the user deletes the cloud from the DB Tree
-		// while data is still being added
-		if (cloud) {
+		unsigned int nb_pts_received = downloaded_cloud->size();
+
+		if (curr_octree_lvl == start_level) {
+			cloud = downloaded_cloud.release();
+			cloud->setName("Base");
+			r->addChild(cloud);
+			m_app->addToDB(cloud, true);
+		}
+		else {
 			cloud->append(downloaded_cloud.release(), cloud->size());
 			cloud->prepareDisplayForRefresh();
 			cloud->refreshDisplay();
-			m_app->updateUI();
 		}
-		else {
-			m_app->dispToConsole("[qGreyhound] User deleted cloud, data downloading stops...");
-			return;
-		}
+		m_app->updateUI();
 		curr_octree_lvl++;
+
+		if (nb_pts_received > MAX_PTS_QUERY) {
+			break;
+		}
+	}
+
+	ccMainAppInterface* app = m_app; // Have to do this because , lambda cannot capture this
+	GreyhoundDownloader downloader(opts, curr_octree_lvl, bounds, converter);
+	try {
+		downloader.download_to(cloud, GreyhoundDownloader::QUADTREE, [&app](){ app->updateUI(); });
+	}
+	catch (const std::exception& e) {
+		m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+		return;
 	}
 }
 
 
-//This method should return the plugin icon (it will be used mainly
-//if your plugin as several actions in which case CC will create a
-//dedicated sub-menu entry with this icon.
 QIcon qGreyhound::getIcon() const
 {
-	//open qGreyhound.qrc (text file), update the "prefix" and the
-	//icon(s) filename(s). Then save it with the right name (yourPlugin.qrc).
-	//(eventually, remove the original qGreyhound.qrc file!)
 	return QIcon(":/CC/plugin/qGreyhound/icon.png");
 }

@@ -169,27 +169,13 @@ void qGreyhound::download_bounding_box()
 		return;
 	}
 
-	const QJsonObject& infos = r->infos();
-
-	QJsonArray schema = infos.value("schema").toArray();
-	std::vector<QString> available_dims;
-	for (const auto dim : schema) {
-		QJsonObject dim_infos = dim.toObject();
-		available_dims.push_back(dim_infos.value("name").toString());
-	}
+	std::vector<QString> available_dims(std::move(r->info().available_dim_name()));
+	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
 
 	Json::Value dims(Json::arrayValue);
-	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
 	for (const QString& name : requested_dims) {
 		dims.append(Json::Value(name.toStdString()));
 	}
-
-	auto offset_json = infos.value("offset").toArray();
-	CCVector3d offset{
-		offset_json.at(0).toDouble(),
-		offset_json.at(1).toDouble(),
-		offset_json.at(2).toDouble()
-	};
 
 
 	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
@@ -201,7 +187,7 @@ void qGreyhound::download_bounding_box()
 
 
 		
-	uint32_t curr_octree_lvl = infos.value("baseDepth").toInt();
+	uint32_t curr_octree_lvl = r->info().base_depth();
 
 	ccPointCloud *cloud = new ccPointCloud("Greyhound");
 	m_app->addToDB(cloud);
@@ -258,7 +244,7 @@ void qGreyhound::download_bounding_box()
 		PDALConverter converter;
 		auto cloud_ptr = converter.convert(view_ptr, table.layout());
 		if (!cloud_ptr) {
-			m_app->dispToConsole(QString("[qGreyhound] Something went wrong when converting th cloud"));
+			m_app->dispToConsole(QString("[qGreyhound] Something went wrong when converting the cloud"));
 			return;
 		}
 
@@ -274,7 +260,6 @@ void qGreyhound::download_bounding_box()
 			m_app->dispToConsole("[qGreyhound] User deleted cloud, data downloading stops...");
 			return;
 		}
-
 		curr_octree_lvl++;
 	}
 }

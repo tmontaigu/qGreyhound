@@ -4,6 +4,7 @@
 #include <QUrlQuery>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QEventLoop>
 
 
@@ -44,6 +45,28 @@ QJsonObject greyhound_info(QUrl url)
 qGreyhoundResource::qGreyhoundResource(QUrl url)
 	: ccCustomHObject(QString("[Greyhound] %1").arg(resource_name_from_url(url.toString())))
 	, m_url(std::move(url))
-	, m_infos(std::move(greyhound_info(m_url)))
+	, m_info(greyhound_info(m_url))
 {
+}
+
+GreyhoundInfo::GreyhoundInfo(QJsonObject info)
+	: m_info(info)
+{
+}
+
+std::vector<QString> GreyhoundInfo::available_dim_name() const
+{
+	QJsonArray schema = m_info.value("schema").toArray();
+	std::vector<QString> dim_names;
+	dim_names.reserve(schema.size());
+	for (const auto& dimension : schema) {
+		QJsonObject dimension_infos = dimension.toObject();
+		dim_names.push_back(dimension_infos.value("name").toString());
+	}
+	return dim_names;
+}
+
+int GreyhoundInfo::base_depth() const
+{
+	return m_info.value("baseDepth").toInt();
 }

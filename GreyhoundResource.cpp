@@ -70,3 +70,15 @@ int GreyhoundInfo::base_depth() const
 {
 	return m_info.value("baseDepth").toInt();
 }
+
+CCVector3d GreyhoundInfo::offset() const
+{
+	QJsonArray offset = m_info.value("offset").toArray();
+	return { offset.at(0).toDouble(), offset.at(1).toDouble(), offset.at(2).toDouble() };
+}
+
+CCVector3d GreyhoundInfo::bounds_conforming_min() const
+{
+	QJsonArray bounds_conforming = m_info.value("boundsConforming").toArray();
+	return { bounds_conforming.at(0).toDouble(), bounds_conforming.at(1).toDouble(), bounds_conforming.at(2).toDouble() };
+}

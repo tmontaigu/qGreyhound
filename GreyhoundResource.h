@@ -15,6 +15,8 @@ public:
 	GreyhoundInfo(QJsonObject info); 
 	int base_depth() const;
 	std::vector<QString> available_dim_name() const;
+	CCVector3d offset() const;
+	CCVector3d bounds_conforming_min() const;
 
 private:
 	QJsonObject m_info;

@@ -51,38 +51,30 @@ qGreyhound::qGreyhound(QObject* parent/*=0*/)
 {
 }
 
-//This method should enable or disable each plugin action
-//depending on the currently selected entities ('selectedEntities').
-//For example: if none of the selected entities is a cloud, and your
-//plugin deals only with clouds, call 'm_action->setEnabled(false)'
 void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 {
-	m_download_bounding_box->setEnabled(!selectedEntities.empty());
-
-	for (const auto& entity : selectedEntities)
-	{
-		qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(entity);
+	if (selectedEntities.size() == 1) {
+		qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(selectedEntities.at(0));
 		m_download_bounding_box->setEnabled(r != nullptr);
+	}
+	else {
+		m_download_bounding_box->setEnabled(false);
 	}
 }
 
 
-//This method returns all 'actions' of your plugin.
-//It will be called only once, when plugin is loaded.
 QList<QAction*> qGreyhound::getActions()
 {
-	if (!m_connect_to_resource)
-	{
+	if (!m_connect_to_resource) {
 		m_connect_to_resource = new QAction("Connect to resource", this);
-		m_connect_to_resource->setToolTip(getDescription());
+		m_connect_to_resource->setToolTip("Connect to a Greyhound resource");
 		m_connect_to_resource->setIcon(getIcon());
 		connect(m_connect_to_resource, &QAction::triggered, this, &qGreyhound::connect_to_resource);
 	}
 
-	if (!m_download_bounding_box)
-	{
-		m_download_bounding_box = new QAction("Download box", this);
-		m_download_bounding_box->setToolTip(getDescription());
+	if (!m_download_bounding_box) {
+		m_download_bounding_box = new QAction("Download Bbox", this);
+		m_download_bounding_box->setToolTip("Download points in a bounding box from a resource");
 		m_download_bounding_box->setIcon(getIcon());
 		connect(m_download_bounding_box, &QAction::triggered, this, &qGreyhound::download_bounding_box);
 	}
@@ -144,15 +136,10 @@ void qGreyhound::connect_to_resource()
 		return;
 	}
 
-	if (text.isEmpty()) {
-		m_app->dispToConsole("You have to enter an url", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-		return;
-	}
-
 	const QUrl url(text);
 
 	if (!url.isValid()) {
-		m_app->dispToConsole(QString("The Url '%1' doesn't look valid").arg(text), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+		m_app->dispToConsole(QString("The Url '%1' it not valid").arg(text), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
 	}
 
@@ -161,9 +148,8 @@ void qGreyhound::connect_to_resource()
 	try {
 		resource = new qGreyhoundResource(url);
 	}
-	catch (const GreyhoundExc& e) {
-		m_app->dispToConsole(url.toString(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
-		m_app->dispToConsole(e.message(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+	catch (const std::exception& e) {
+		m_app->dispToConsole(e.what(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
 	}
 

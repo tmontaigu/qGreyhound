@@ -28,23 +28,5 @@ private:
 
 
 
-
-class GreyhoundExc : public QException
-
-{
-
-public:
-	GreyhoundExc(const QString& msg) : m_msg(msg) {}
-
-	virtual const char* what() const noexcept { return m_msg.toStdString().c_str(); }
-	const QString& message() const { return m_msg; }
-
-	void raise() const { throw *this; }
-	GreyhoundExc *clone() const { return new GreyhoundExc(*this); }
-	
-private:
-	QString m_msg;
-};
-
 QString resource_name_from_url(const QString& url);
 QJsonObject greyhound_info(QUrl url);

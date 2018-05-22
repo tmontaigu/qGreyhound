@@ -28,13 +28,13 @@ QJsonObject greyhound_info(QUrl url)
 	loop.exec();
 
 	if (reply->error() != QNetworkReply::NoError) {
-		throw GreyhoundExc(reply->errorString());
+		throw std::runtime_error(reply->errorString().toStdString());
 	}
 
 	QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
 	
 	if (!document.isObject()) {
-		throw GreyhoundExc("Recieved info is not a proper json object");
+		throw std::runtime_error("Received info is not a proper json object");
 	}
 	return document.object();
 }

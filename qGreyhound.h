@@ -52,12 +52,6 @@ protected slots:
 	void download_bounding_box();
 
 protected:
-
-	//! Default action
-	/** You can add as many actions as you want in a plugin.
-		All actions will correspond to an icon in the dedicated
-		toolbar and an entry in the plugin menu.
-	**/
 	QAction* m_download_bounding_box;
 	QAction* m_connect_to_resource;
 };

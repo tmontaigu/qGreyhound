@@ -204,7 +204,7 @@ void qGreyhound::download_bounding_box()
 
 		std::unique_ptr<ccPointCloud> downloaded_cloud(nullptr);
 		try {
-			downloaded_cloud = download_and_convert_cloud(q_opts, converter);
+			downloaded_cloud = download_and_convert_cloud_threaded(q_opts, converter);
 		}
 		catch (const std::exception& e) {
 			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -232,10 +232,14 @@ void qGreyhound::download_bounding_box()
 		}
 	}
 
-	ccMainAppInterface* app = m_app; // Have to do this because , lambda cannot capture this
 	GreyhoundDownloader downloader(opts, curr_octree_lvl, bounds, converter);
 	try {
-		downloader.download_to(cloud, GreyhoundDownloader::QUADTREE, [&app](){ app->updateUI(); });
+		QFutureWatcher<void> d;
+		QEventLoop loop;
+		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::QUADTREE, []() {}); }));
+		QObject::connect(&d, &QFutureWatcher<void>::finished, &loop, &QEventLoop::quit);
+		loop.exec();
+		d.waitForFinished();
 	}
 	catch (const std::exception& e) {
 		m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);

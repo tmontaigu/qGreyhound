@@ -3,6 +3,8 @@
 #include <QtConcurrent>
 #include <QThreadPool>
 
+#include <DgmOctree.h>
+
 #include <GreyhoundReader.hpp>
 
 #include "GreyhoundDownloader.h"
@@ -123,11 +125,7 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method, st
 		qout.push(m);
 	};
 
-	qin.push(BoundsDepth{ m_bounds, static_cast<int>(m_current_depth), nullptr });
-	//qin.push(BoundsDepth{ m_bounds.getSe(), static_cast<int>(m_current_depth) , nullptr});
-	//qin.push(BoundsDepth{ m_bounds.getSw(), static_cast<int>(m_current_depth) , nullptr});
-	//qin.push(BoundsDepth{ m_bounds.getNe(), static_cast<int>(m_current_depth) , nullptr});
-	//qin.push(BoundsDepth{ m_bounds.getNw(), static_cast<int>(m_current_depth) , nullptr});
+	qin.emplace(m_bounds, static_cast<int>(m_current_depth));
 	while (!qin.empty() || !qout.empty() || pool.activeThreadCount() != 0)
 	{
 		if (!qin.empty())
@@ -150,36 +148,37 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method, st
 		}
 		if (m.cloud && m.cloud->size() && cloud)
 		{
-			cloud->append(m.cloud, cloud->size());
-			cloud->prepareDisplayForRefresh();
-			cloud->refreshDisplay();
+			if (cloud->hasDisplayedScalarField() || cloud->colorsShown()) {
+				m.cloud->showSF(false);
+				m.cloud->showColors(false);
+			}
 
-			qin.push(BoundsDepth{ m.b.getSe(), m.depth + 1 , nullptr});
-			qin.push(BoundsDepth{ m.b.getSw(), m.depth + 1 , nullptr});
-			qin.push(BoundsDepth{ m.b.getNe(), m.depth + 1 , nullptr});
-			qin.push(BoundsDepth{ m.b.getNw(), m.depth + 1 , nullptr});
-			//switch (method)
-			//{
-			//case GreyhoundDownloader::DEPTH_BY_DEPTH:
-			//	qin.push(BoundsDepth{ m.b, m.depth + 1 });
-			//	break;
-			//case GreyhoundDownloader::QUADTREE:
-			//	qin.push(BoundsDepth{ m.b.getSe(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getSw(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getNe(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getNw(), m.depth + 1 });
-			//	break;
-			//case GreyhoundDownloader::OCTREE:
-			//	qin.push(BoundsDepth{ m.b.getNeu(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getNed(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getNwu(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getNwd(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getSeu(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getSed(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getSwu(), m.depth + 1 });
-			//	qin.push(BoundsDepth{ m.b.getSwd(), m.depth + 1 });
-			//	break;
-			//}
+			cloud->append(m.cloud, cloud->size());
+			//Ideally we would like to refresh soon after appending
+			//but we can't because the main thread also refreshes the 
+			//display from time to time/ on some user action causing crashes?
+			//cloud->prepareDisplayForRefresh();
+			//cloud->refreshDisplay();
+
+			if (m.depth + 1 <= CCLib::DgmOctree::MAX_OCTREE_LEVEL)
+			{
+				switch (method)
+				{
+				case GreyhoundDownloader::DEPTH_BY_DEPTH:
+					qin.emplace(m.b, m.depth + 1);
+					break;
+				case GreyhoundDownloader::QUADTREE:
+					qin.emplace(m.b.getSe(), m.depth + 1);
+					qin.emplace(m.b.getSw(), m.depth + 1);
+					qin.emplace(m.b.getNe(), m.depth + 1);
+					qin.emplace(m.b.getNw(), m.depth + 1);
+					break;
+				case GreyhoundDownloader::OCTREE:
+					break;
+				default:
+					break;
+				}
+			}
 		}
 	}
 	pool.waitForDone();

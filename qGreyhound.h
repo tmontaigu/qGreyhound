@@ -25,7 +25,7 @@
 
 #include "GreyhoundResource.h"
 
-const unsigned int MAX_PTS_QUERY = 200000;
+const unsigned int MAX_PTS_QUERY = 4 * 1000 * 1000;
 
 class qGreyhound : public QObject, public ccStdPluginInterface
 {

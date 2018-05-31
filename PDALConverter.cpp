@@ -107,7 +107,6 @@ PDALConverter::convert_scalar_fields(pdal::PointViewPtr view, pdal::PointLayoutP
 			out_cloud->showSF(true);
 		}
 
-		sf->link();
 	}
 }
 

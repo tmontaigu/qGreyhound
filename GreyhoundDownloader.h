@@ -8,11 +8,29 @@
 #include "PDALConverter.h"
 
 std::unique_ptr<ccPointCloud> download_and_convert_cloud(pdal::Options opts, PDALConverter converter = PDALConverter());
+std::unique_ptr<ccPointCloud> download_and_convert_cloud_threaded(pdal::Options opts, PDALConverter converter = PDALConverter());
 
 struct BoundsDepth
 {
+	BoundsDepth()
+		: b()
+		, depth(0)
+		, cloud(nullptr)
+	{}
+
+	BoundsDepth(const pdal::greyhound::Bounds &b, int depth)
+		: b(b)
+		, depth(depth)
+		, cloud(nullptr)
+	{}
+	BoundsDepth(const pdal::greyhound::Bounds &b, int depth, ccPointCloud* c)
+		: BoundsDepth(b, depth)
+	{
+		cloud = c;
+	}
 	pdal::greyhound::Bounds b;
 	int depth;
+	ccPointCloud *cloud;
 };
 
 class GreyhoundDownloader

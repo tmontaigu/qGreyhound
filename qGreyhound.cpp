@@ -81,7 +81,7 @@ QList<QAction*> qGreyhound::getActions()
 		connect(m_download_bounding_box, &QAction::triggered, this, &qGreyhound::download_bounding_box);
 	}
 
-	return QList<QAction*> { m_download_bounding_box, m_connect_to_resource };
+	return { m_connect_to_resource, m_download_bounding_box };
 }
 
 std::vector<QString> ask_for_dimensions(std::vector<QString> available_dims) 
@@ -109,14 +109,14 @@ pdal::greyhound::Bounds ask_for_bbox()
 		ui.xmax->text().isEmpty() ||
 		ui.ymax->text().isEmpty())
 	{
-		return pdal::greyhound::Bounds();
+		return {};
 	}
-	return pdal::greyhound::Bounds(
+	return {
 			ui.xmin->text().toDouble(),
 			ui.ymin->text().toDouble(),
 			ui.xmax->text().toDouble(),
 			ui.ymax->text().toDouble()
-		);
+	};
 }
 
 
@@ -179,12 +179,11 @@ void qGreyhound::download_bounding_box()
 	}
 
 
-	pdal::greyhound::Bounds bounds(1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023);
-	//pdal::greyhound::Bounds bounds = ask_for_bbox();
-	//if (bounds.empty()) {
-	//	m_app->dispToConsole("Empty bbox");
-	//	return;
-	//}
+	pdal::greyhound::Bounds bounds = ask_for_bbox();
+	if (bounds.empty()) {
+		m_app->dispToConsole("Empty bbox");
+		bounds = { 1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023 };
+	}
 		
 
 	CCVector3d shift = r->info().bounds_conforming_min();
@@ -204,7 +203,7 @@ void qGreyhound::download_bounding_box()
 
 		std::unique_ptr<ccPointCloud> downloaded_cloud(nullptr);
 		try {
-			downloaded_cloud = download_and_convert_cloud(q_opts, converter);
+			downloaded_cloud = download_and_convert_cloud_threaded(q_opts, converter);
 		}
 		catch (const std::exception& e) {
 			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -213,6 +212,10 @@ void qGreyhound::download_bounding_box()
 
 		unsigned int nb_pts_received = downloaded_cloud->size();
 
+		if (nb_pts_received == 0) {
+			return;
+		}
+		
 		if (curr_octree_lvl == start_level) {
 			cloud = downloaded_cloud.release();
 			cloud->setName("Base");
@@ -232,14 +235,22 @@ void qGreyhound::download_bounding_box()
 		}
 	}
 
-	ccMainAppInterface* app = m_app; // Have to do this because , lambda cannot capture this
 	GreyhoundDownloader downloader(opts, curr_octree_lvl, bounds, converter);
 	try {
-		downloader.download_to(cloud, GreyhoundDownloader::QUADTREE, [&app](){ app->updateUI(); });
+		QFutureWatcher<void> d;
+		QEventLoop loop;
+		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::QUADTREE, []() {}); }));
+		QObject::connect(&d, &QFutureWatcher<void>::finished, &loop, &QEventLoop::quit);
+		loop.exec();
+		d.waitForFinished();
+		m_app->updateUI();
 	}
 	catch (const std::exception& e) {
 		m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
+	}
+	if (cloud->getOctree() == nullptr) {
+		cloud->computeOctree();
 	}
 }
 

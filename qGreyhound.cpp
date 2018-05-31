@@ -56,7 +56,7 @@ qGreyhound::qGreyhound(QObject* parent/*=0*/)
 void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 {
 	if (selectedEntities.size() == 1) {
-		qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(selectedEntities.at(0));
+		ccGreyhoundResource *r = dynamic_cast<ccGreyhoundResource*>(selectedEntities.at(0));
 		m_download_bounding_box->setEnabled(r != nullptr);
 	}
 	else {
@@ -145,10 +145,10 @@ void qGreyhound::connect_to_resource()
 		return;
 	}
 
-	qGreyhoundResource *resource(nullptr);
+	ccGreyhoundResource *resource(nullptr);
 
 	try {
-		resource = new qGreyhoundResource(url);
+		resource = new ccGreyhoundResource(url);
 	}
 	catch (const std::exception& e) {
 		m_app->dispToConsole(e.what(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -163,7 +163,7 @@ void qGreyhound::download_bounding_box()
 	assert(m_app);
 	
 	const auto& selected_ent = m_app->getSelectedEntities();
-	qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(selected_ent.at(0));
+	ccGreyhoundResource *r = dynamic_cast<ccGreyhoundResource*>(selected_ent.at(0));
 	if (!r) {
 		return;
 	}

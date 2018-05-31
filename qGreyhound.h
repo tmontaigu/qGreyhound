@@ -23,7 +23,7 @@
 //qCC
 #include "ccStdPluginInterface.h"
 
-#include "GreyhoundResource.h"
+#include "ccGreyhoundResource.h"
 
 const unsigned int MAX_PTS_QUERY = 4 * 1000 * 1000;
 

@@ -7,8 +7,8 @@
 
 #include "PDALConverter.h"
 
-std::unique_ptr<ccPointCloud> download_and_convert_cloud(pdal::Options opts, PDALConverter converter = PDALConverter());
-std::unique_ptr<ccPointCloud> download_and_convert_cloud_threaded(pdal::Options opts, PDALConverter converter = PDALConverter());
+void download_and_convert_cloud(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter = PDALConverter());
+void download_and_convert_cloud_threaded(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter = PDALConverter());
 
 struct BoundsDepth
 {

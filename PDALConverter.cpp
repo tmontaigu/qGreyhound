@@ -11,12 +11,11 @@ is_vector_zero(const CCVector3d& vec)
 	return (vec - CCVector3d(0, 0, 0)).norm() < std::numeric_limits<double>::epsilon();
 }
 
-std::unique_ptr<ccPointCloud>
-PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout)
+void
+PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud *cloud)
 {
-	auto cloud = std::make_unique<ccPointCloud>("ConvertedCloud");
 	if (!cloud || !cloud->reserve(view->size())) {
-		return cloud;
+		return;
 	}
 	
 	if (is_vector_zero(m_shift)) {
@@ -44,11 +43,9 @@ PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout)
 	}
 
 	if (has_all_colors) {
-		convert_rgb(view, cloud.get());
+		convert_rgb(view, cloud);
 	}
-	convert_scalar_fields(view, layout, cloud.get());
-
-	return cloud;
+	convert_scalar_fields(view, layout, cloud);
 }
 
 void 

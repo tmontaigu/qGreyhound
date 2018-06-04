@@ -8,7 +8,7 @@
 class PDALConverter {
 public:
 	PDALConverter() = default;
-	std::unique_ptr<ccPointCloud> convert(pdal::PointViewPtr, pdal::PointLayoutPtr);
+	void convert(pdal::PointViewPtr, pdal::PointLayoutPtr, ccPointCloud *cloud);
 	void set_shift(CCVector3d shift);
 
 

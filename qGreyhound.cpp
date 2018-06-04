@@ -42,6 +42,7 @@
 #include "DimensionDialog.h"
 #include "PDALConverter.h"
 #include "GreyhoundDownloader.h"
+#include "ccGreyhoundCloud.h"
 
 #include "ui_bbox_form.h"
 
@@ -179,7 +180,7 @@ void qGreyhound::download_bounding_box()
 	}
 
 
-	pdal::greyhound::Bounds bounds = ask_for_bbox();
+	Greyhound::Bounds bounds = ask_for_bbox();
 	if (bounds.empty()) {
 		m_app->dispToConsole("Empty bbox");
 		bounds = { 1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023 };
@@ -193,7 +194,8 @@ void qGreyhound::download_bounding_box()
 	opts.add("url", r->url().toString().toStdString());
 	opts.add("dims", dims);
 
-	ccPointCloud *cloud = nullptr;
+	//ccPointCloud *cloud = nullptr;
+	ccGreyhoundCloud *cloud = nullptr;
 	while (true)
 	{
 		pdal::Options q_opts(opts);
@@ -201,29 +203,30 @@ void qGreyhound::download_bounding_box()
 		q_opts.add("depth_end", curr_octree_lvl + 1);
 		q_opts.add("bounds", bounds.toJson());
 
-		std::unique_ptr<ccPointCloud> downloaded_cloud(nullptr);
+		//ccPointCloud *download_cloud = new ccPointCloud("Base");
+		ccGreyhoundCloud *download_cloud = new ccGreyhoundCloud("Base");
 		try {
-			downloaded_cloud = download_and_convert_cloud_threaded(q_opts, converter);
+			download_and_convert_cloud_threaded(download_cloud, q_opts, converter);
 		}
 		catch (const std::exception& e) {
 			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return;
 		}
 
-		unsigned int nb_pts_received = downloaded_cloud->size();
+		unsigned int nb_pts_received = download_cloud->size();
 
 		if (nb_pts_received == 0) {
 			return;
 		}
 		
 		if (curr_octree_lvl == start_level) {
-			cloud = downloaded_cloud.release();
-			cloud->setName("Base");
+			cloud = download_cloud;
+			cloud->set_bbox(bounds);
 			r->addChild(cloud);
 			m_app->addToDB(cloud, true);
 		}
 		else {
-			cloud->append(downloaded_cloud.release(), cloud->size());
+			cloud->append(download_cloud, cloud->size());
 			cloud->prepareDisplayForRefresh();
 			cloud->refreshDisplay();
 		}
@@ -239,7 +242,7 @@ void qGreyhound::download_bounding_box()
 	try {
 		QFutureWatcher<void> d;
 		QEventLoop loop;
-		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::QUADTREE, []() {}); }));
+		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::DEPTH_BY_DEPTH, []() {}); }));
 		QObject::connect(&d, &QFutureWatcher<void>::finished, &loop, &QEventLoop::quit);
 		loop.exec();
 		d.waitForFinished();

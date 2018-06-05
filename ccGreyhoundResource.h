@@ -6,8 +6,11 @@
 #include <QNetworkRequest>
 #include <QException>
 #include <QJsonObject>
+#include <QIcon>
 
 #include <ccCustomObject.h>
+
+#include "constants.h"
 
 class GreyhoundInfo
 {
@@ -31,6 +34,7 @@ public:
 	bool isSerializable() const override { return false; };
 	static QString DefautMetaDataClassName() { return "qGreyHoundResource"; };
 	static QString DefaultMetaDataPluginName() { return "qGreyhound"; };
+	QIcon getIcon() const override { return QIcon(IconPaths::GreyhoundIcon); };
 
 	QUrl url() const { return m_url; }
 	const GreyhoundInfo& info() const { return m_info; }

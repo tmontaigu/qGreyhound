@@ -5,6 +5,8 @@
 #include <ccScalarField.h>
 #include <ccColorScalesManager.h>
 
+using DimId = pdal::Dimension::Id;
+
 bool 
 is_vector_zero(const CCVector3d& vec)
 {
@@ -14,7 +16,6 @@ is_vector_zero(const CCVector3d& vec)
 void
 PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud *cloud)
 {
-	using DimId = pdal::Dimension::Id;
 
 	if (!cloud || !cloud->reserve(view->size())) {
 		return;
@@ -66,9 +67,9 @@ PDALConverter::convert_rgb(pdal::PointViewPtr view, ccPointCloud *out_cloud)
 		std::array<uint16_t, 3> rgb_16 { 0,0,0 };
 		std::array<ColorCompType, 3> rgb { 0,0,0 };
 		for (size_t i = 0; i < view->size(); ++i) {
-			rgb_16[0] = view->getFieldAs<uint16_t>(pdal::Dimension::Id::Red, i);
-			rgb_16[1] = view->getFieldAs<uint16_t>(pdal::Dimension::Id::Green, i);
-			rgb_16[2] = view->getFieldAs<uint16_t>(pdal::Dimension::Id::Blue, i);
+			rgb_16[0] = view->getFieldAs<uint16_t>(DimId::Red, i);
+			rgb_16[1] = view->getFieldAs<uint16_t>(DimId::Green, i);
+			rgb_16[2] = view->getFieldAs<uint16_t>(DimId::Blue, i);
 
 			//TODO: Some resources may not have colors coded on the 16 bits
 			// thus not requiring the shift
@@ -85,9 +86,7 @@ void
 PDALConverter::convert_scalar_fields(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud* out_cloud)
 {
 	for (pdal::Dimension::Id id : view->dims()) {
-		if (id == pdal::Dimension::Id::X ||
-			id == pdal::Dimension::Id::Y ||
-			id == pdal::Dimension::Id::Z) {
+		if (id == DimId::X || id == DimId::Y || id == DimId::Z) {
 			continue;
 		}
 		ccScalarField *sf = new ccScalarField(layout->dimName(id).c_str());
@@ -96,16 +95,25 @@ PDALConverter::convert_scalar_fields(pdal::PointViewPtr view, pdal::PointLayoutP
 		for (size_t i = 0; i < view->size(); ++i) {
 			ScalarType value = view->getFieldAs<ScalarType>(id, i);
 			sf->addElement(value);
-
 		}
 
 		sf->computeMinAndMax();
 
 		int sf_index = out_cloud->addScalarField(sf);
-		if (id == pdal::Dimension::Id::Intensity) {
+		if (id == DimId::Intensity) {
 			sf->setColorScale(ccColorScalesManager::GetDefaultScale(ccColorScalesManager::GREY));
 			out_cloud->setCurrentDisplayedScalarField(sf_index);
 			out_cloud->showSF(true);
+		}
+
+		if (id == DimId::GpsTime) {
+
+			ScalarType min = sf->getMin();
+			for (size_t i(0); i < sf->currentSize(); ++i) {
+				sf->setValue(i, sf->getValue(i) - min);
+			}
+			sf->setGlobalShift(min);
+			sf->computeMinAndMax();
 		}
 
 	}

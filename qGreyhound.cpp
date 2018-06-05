@@ -42,6 +42,7 @@
 #include "DimensionDialog.h"
 #include "PDALConverter.h"
 #include "GreyhoundDownloader.h"
+#include "constants.h"
 
 #include "ui_bbox_form.h"
 
@@ -79,7 +80,7 @@ QList<QAction*> qGreyhound::getActions()
 	if (!m_download_bounding_box) {
 		m_download_bounding_box = new QAction("Download Bbox", this);
 		m_download_bounding_box->setToolTip("Download points in a bounding box from a resource");
-		m_download_bounding_box->setIcon(QIcon(":/CC/plugin/qGreyhound/dl_icon.png"));
+		m_download_bounding_box->setIcon(QIcon(IconPaths::DownloadIcon));
 		connect(m_download_bounding_box, &QAction::triggered, this, &qGreyhound::download_bounding_box);
 	}
 
@@ -178,14 +179,18 @@ void qGreyhound::download_bounding_box()
 		}
 	}
 
-	ccGreyhoundResource *r = dynamic_cast<ccGreyhoundResource*>(selected_ent.at(0));
-	if (!r) {
+	ccGreyhoundResource *resource = dynamic_cast<ccGreyhoundResource*>(selected_ent.at(0));
+	if (!resource) {
 		return;
 	}
 
-	uint32_t curr_octree_lvl = r->info().base_depth();
-	std::vector<QString> available_dims(std::move(r->info().available_dim_name()));
-	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
+	uint32_t curr_octree_lvl = resource->info().base_depth();
+	const std::vector<QString> available_dims(std::move(resource->info().available_dim_name()));
+	const std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
+	if (requested_dims.size() == 0) {
+		m_app->dispToConsole("[qGreyhound] no dimensions were selected");
+		return;
+	}
 
 	Json::Value dims(Json::arrayValue);
 	for (const QString& name : requested_dims) {
@@ -196,15 +201,15 @@ void qGreyhound::download_bounding_box()
 	Greyhound::Bounds bounds = ask_for_bbox();
 	if (bounds.empty()) {
 		m_app->dispToConsole("[qGreyhound] Empty bbox");
-		bounds = { 1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023 };
+		bounds = { 1415593.910970612, 4184732.482818023,1415620.5006109416, 4184752.4613910406,};
 	}
 		
 
-	CCVector3d shift = r->info().bounds_conforming_min();
+	CCVector3d shift = resource->info().bounds_conforming_min();
 	PDALConverter converter;
 	converter.set_shift(shift);
 	pdal::Options opts;
-	opts.add("url", r->url().toString().toStdString());
+	opts.add("url", resource->url().toString().toStdString());
 	opts.add("dims", dims);
 
 	ccGreyhoundCloud *cloud = new ccGreyhoundCloud("Cloud (downloading...)");
@@ -223,15 +228,13 @@ void qGreyhound::download_bounding_box()
 			return;
 		}
 
-		unsigned int nb_pts_received = cloud->size();
-
-		if (nb_pts_received == 0) {
+		if (cloud->size() == 0) {
 			return;
 		}
 		
 		cloud->set_bbox(bounds);
-		cloud->set_origin(r);
-		r->addChild(cloud);
+		cloud->set_origin(resource);
+		resource->addChild(cloud);
 		m_app->addToDB(cloud, true);
 		m_app->updateUI();
 		curr_octree_lvl++;
@@ -265,7 +268,7 @@ void qGreyhound::download_more_dimensions(ccGreyhoundCloud *c)
 
 	downloaded.reserve(c->getNumberOfScalarFields());
 
-	for (int i(0); i < c->getNumberOfScalarFields(); ++i) {
+	for (unsigned int i(0); i < c->getNumberOfScalarFields(); ++i) {
 		downloaded.emplace_back(c->getScalarField(i)->getName());
 	}
 
@@ -315,5 +318,5 @@ void qGreyhound::download_more_dimensions(ccGreyhoundCloud *c)
 
 QIcon qGreyhound::getIcon() const
 {
-	return QIcon(":/CC/plugin/qGreyhound/icon.png");
+	return QIcon(IconPaths::GreyhoundIcon);
 }

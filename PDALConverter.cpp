@@ -14,26 +14,30 @@ is_vector_zero(const CCVector3d& vec)
 void
 PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud *cloud)
 {
+	using DimId = pdal::Dimension::Id;
+
 	if (!cloud || !cloud->reserve(view->size())) {
 		return;
 	}
 	
-	if (is_vector_zero(m_shift)) {
-		pdal::BOX3D bounds;
-		view->calculateBounds(bounds);
-		m_shift = CCVector3d(bounds.minx, bounds.miny, bounds.minz);
+	if (layout->hasDim(DimId::X) || layout->hasDim(DimId::Y) || layout->hasDim(DimId::Z)) {
+		if (is_vector_zero(m_shift)) {
+			pdal::BOX3D bounds;
+			view->calculateBounds(bounds);
+			m_shift = CCVector3d(bounds.minx, bounds.miny, bounds.minz);
+		}
+
+		for (size_t i = 0; i < view->size(); ++i) {
+			cloud->addPoint(CCVector3(
+				view->getFieldAs<double>(DimId::X, i) - m_shift.x,
+				view->getFieldAs<double>(DimId::Y, i) - m_shift.y,
+				view->getFieldAs<double>(DimId::Z, i) - m_shift.z
+			));
+		}
+		cloud->setGlobalShift(m_shift);
 	}
 
-	for (size_t i = 0; i < view->size(); ++i) {
-		cloud->addPoint(CCVector3(
-			view->getFieldAs<double>(pdal::Dimension::Id::X, i) - m_shift.x,
-			view->getFieldAs<double>(pdal::Dimension::Id::Y, i) - m_shift.y,
-			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - m_shift.z
-		));
-	}
-	cloud->setGlobalShift(m_shift);
-
-	pdal::Dimension::IdList color_ids{ pdal::Dimension::Id::Red, pdal::Dimension::Id::Green, pdal::Dimension::Id::Blue };
+	pdal::Dimension::IdList color_ids{ DimId::Red, DimId::Green, DimId::Blue };
 	bool has_all_colors = true;
 	for (auto color_id : color_ids) {
 		if (!view->hasDim(color_id)) {

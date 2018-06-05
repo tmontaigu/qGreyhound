@@ -24,8 +24,8 @@
 #include "ccStdPluginInterface.h"
 
 #include "ccGreyhoundResource.h"
+#include "ccGreyhoundCloud.h"
 
-const unsigned int MAX_PTS_QUERY = 5 * 1000 * 1000;
 
 class qGreyhound : public QObject, public ccStdPluginInterface
 {
@@ -48,6 +48,7 @@ public:
 	void onNewSelection(const ccHObject::Container& selectedEntities) override;
 	virtual QList<QAction*> getActions() override;
 
+
 protected slots:
 
 	void connect_to_resource();
@@ -56,6 +57,9 @@ protected slots:
 protected:
 	QAction* m_download_bounding_box;
 	QAction* m_connect_to_resource;
+
+
+	void download_more_dimensions(ccGreyhoundCloud* cloud);
 };
 
 #endif

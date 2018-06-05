@@ -87,7 +87,7 @@ void DlWorker::run()
 }
 
 void
-GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method, std::function<void()> cb)
+GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method)
 {
 	std::queue<BoundsDepth> qin;
 	std::queue<BoundsDepth> qout;
@@ -175,5 +175,4 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method, st
 			}
 		}
 	}
-	pool.waitForDone();
 }

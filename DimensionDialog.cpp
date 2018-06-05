@@ -2,7 +2,7 @@
 
 DimensionDialog::DimensionDialog(const std::vector<QString>& names, QWidget *parent) : QDialog(parent)
 {
-	setWindowTitle("Checkable list in Qt");
+	setWindowTitle("Choose dimensions");
 
 	createListWidget(names);
 	createOtherWidgets();

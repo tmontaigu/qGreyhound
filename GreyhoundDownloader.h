@@ -45,7 +45,7 @@ public:
 
 public:
 	GreyhoundDownloader(pdal::Options opts, uint32_t start_depth, pdal::greyhound::Bounds bounds, PDALConverter converter);
-	void download_to(ccPointCloud* cloud, DOWNLOAD_METHOD, std::function<void()> cb);
+	void download_to(ccPointCloud* cloud, DOWNLOAD_METHOD);
 
 
 private:

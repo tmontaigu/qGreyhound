@@ -21,14 +21,13 @@ public:
 
 private:
 	QJsonObject m_info;
-
 };
 
 
-class qGreyhoundResource : public ccCustomHObject
+class ccGreyhoundResource : public ccCustomHObject
 {
 public:
-	qGreyhoundResource(QUrl url);
+	ccGreyhoundResource(QUrl url);
 	bool isSerializable() const override { return false; };
 	static QString DefautMetaDataClassName() { return "qGreyHoundResource"; };
 	static QString DefaultMetaDataPluginName() { return "qGreyhound"; };

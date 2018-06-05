@@ -9,34 +9,29 @@
 
 #include "GreyhoundDownloader.h"
 
-std::unique_ptr<ccPointCloud> 
-download_and_convert_cloud(pdal::Options opts, PDALConverter converter)
+void
+download_and_convert_cloud(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter)
 {
 	std::exception_ptr eptr(nullptr);
 	pdal::PointTable table;
 	pdal::PointViewSet view_set;
 	pdal::GreyhoundReader reader;
-	std::unique_ptr<ccPointCloud> cloud(nullptr);
 
 	reader.addOptions(opts);
 
 	reader.prepare(table);
 	view_set = reader.execute(table);
 	pdal::PointViewPtr view_ptr = *view_set.begin();
-	cloud = converter.convert(view_ptr, table.layout());
-
-
-	return cloud;
+	converter.convert(view_ptr, table.layout(), cloud);
 }
 
-std::unique_ptr<ccPointCloud> 
-download_and_convert_cloud_threaded(pdal::Options opts, PDALConverter converter)
+void
+download_and_convert_cloud_threaded(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter)
 {
-	std::unique_ptr<ccPointCloud> cloud(nullptr);
 	std::exception_ptr eptr(nullptr);
 	auto dl = [&cloud, &eptr](pdal::Options opts, PDALConverter converter) {
 		try {
-			cloud = download_and_convert_cloud(opts, converter);
+			download_and_convert_cloud(cloud, opts, converter);
 		}
 		catch (...) {
 			eptr = std::current_exception();
@@ -53,7 +48,6 @@ download_and_convert_cloud_threaded(pdal::Options opts, PDALConverter converter)
 	if (eptr) {
 		std::rethrow_exception(eptr);
 	}
-	return cloud;
 }
 
 GreyhoundDownloader::GreyhoundDownloader(pdal::Options opts, uint32_t start_depth, pdal::greyhound::Bounds bounds, PDALConverter converter)
@@ -93,7 +87,7 @@ void DlWorker::run()
 }
 
 void
-GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method, std::function<void()> cb)
+GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method)
 {
 	std::queue<BoundsDepth> qin;
 	std::queue<BoundsDepth> qout;
@@ -113,8 +107,8 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method, st
 		opts.add("depth_end", m.depth + 1);
 		opts.add("bounds", m.b.toJson());
 		try {
-			std::unique_ptr<ccPointCloud> downloaded_cloud(download_and_convert_cloud(opts, m_converter));
-			m.cloud = downloaded_cloud.release();
+			m.cloud = new ccPointCloud("a");
+			download_and_convert_cloud(m.cloud, opts, m_converter);
 		}
 		catch (const std::exception& e) {
 			ccLog::Print(QString("[qGreyhound] %1").arg(e.what()));
@@ -181,5 +175,4 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method, st
 			}
 		}
 	}
-	pool.waitForDone();
 }

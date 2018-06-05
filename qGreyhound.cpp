@@ -56,8 +56,10 @@ qGreyhound::qGreyhound(QObject* parent/*=0*/)
 void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 {
 	if (selectedEntities.size() == 1) {
-		qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(selectedEntities.at(0));
-		m_download_bounding_box->setEnabled(r != nullptr);
+		ccGreyhoundResource *is_ressource = dynamic_cast<ccGreyhoundResource*>(selectedEntities.at(0));
+		ccGreyhoundCloud *is_cloud = dynamic_cast<ccGreyhoundCloud*>(selectedEntities.at(0));
+		m_download_bounding_box->setEnabled(is_ressource || is_cloud);
+
 	}
 	else {
 		m_download_bounding_box->setEnabled(false);
@@ -145,10 +147,10 @@ void qGreyhound::connect_to_resource()
 		return;
 	}
 
-	qGreyhoundResource *resource(nullptr);
+	ccGreyhoundResource *resource(nullptr);
 
 	try {
-		resource = new qGreyhoundResource(url);
+		resource = new ccGreyhoundResource(url);
 	}
 	catch (const std::exception& e) {
 		m_app->dispToConsole(e.what(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -163,13 +165,25 @@ void qGreyhound::download_bounding_box()
 	assert(m_app);
 	
 	const auto& selected_ent = m_app->getSelectedEntities();
-	qGreyhoundResource *r = dynamic_cast<qGreyhoundResource*>(selected_ent.at(0));
+
+	ccGreyhoundCloud *c = dynamic_cast<ccGreyhoundCloud*> (selected_ent.at(0));
+	if (c) {
+		try
+		{
+			download_more_dimensions(c);
+		}
+		catch (const std::exception& e)
+		{
+			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+		}
+	}
+
+	ccGreyhoundResource *r = dynamic_cast<ccGreyhoundResource*>(selected_ent.at(0));
 	if (!r) {
 		return;
 	}
 
-	uint32_t start_level = r->info().base_depth();
-	uint32_t curr_octree_lvl = start_level;
+	uint32_t curr_octree_lvl = r->info().base_depth();
 	std::vector<QString> available_dims(std::move(r->info().available_dim_name()));
 	std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
 
@@ -179,9 +193,9 @@ void qGreyhound::download_bounding_box()
 	}
 
 
-	pdal::greyhound::Bounds bounds = ask_for_bbox();
+	Greyhound::Bounds bounds = ask_for_bbox();
 	if (bounds.empty()) {
-		m_app->dispToConsole("Empty bbox");
+		m_app->dispToConsole("[qGreyhound] Empty bbox");
 		bounds = { 1415593.910970612, 4184752.4613910406, 1415620.5006109416, 4184732.482818023 };
 	}
 		
@@ -193,67 +207,111 @@ void qGreyhound::download_bounding_box()
 	opts.add("url", r->url().toString().toStdString());
 	opts.add("dims", dims);
 
-	ccPointCloud *cloud = nullptr;
-	while (true)
+	ccGreyhoundCloud *cloud = new ccGreyhoundCloud("Cloud (downloading...)");
+	// We download the first depth separately here to be able to add it to cc's DB
 	{
 		pdal::Options q_opts(opts);
 		q_opts.add("depth_begin", curr_octree_lvl);
 		q_opts.add("depth_end", curr_octree_lvl + 1);
 		q_opts.add("bounds", bounds.toJson());
 
-		std::unique_ptr<ccPointCloud> downloaded_cloud(nullptr);
 		try {
-			downloaded_cloud = download_and_convert_cloud_threaded(q_opts, converter);
+			download_and_convert_cloud_threaded(cloud, q_opts, converter);
 		}
 		catch (const std::exception& e) {
 			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return;
 		}
 
-		unsigned int nb_pts_received = downloaded_cloud->size();
+		unsigned int nb_pts_received = cloud->size();
 
 		if (nb_pts_received == 0) {
 			return;
 		}
 		
-		if (curr_octree_lvl == start_level) {
-			cloud = downloaded_cloud.release();
-			cloud->setName("Base");
-			r->addChild(cloud);
-			m_app->addToDB(cloud, true);
-		}
-		else {
-			cloud->append(downloaded_cloud.release(), cloud->size());
-			cloud->prepareDisplayForRefresh();
-			cloud->refreshDisplay();
-		}
+		cloud->set_bbox(bounds);
+		cloud->set_origin(r);
+		r->addChild(cloud);
+		m_app->addToDB(cloud, true);
 		m_app->updateUI();
 		curr_octree_lvl++;
-
-		if (nb_pts_received > MAX_PTS_QUERY) {
-			break;
-		}
 	}
 
 	GreyhoundDownloader downloader(opts, curr_octree_lvl, bounds, converter);
 	try {
 		QFutureWatcher<void> d;
 		QEventLoop loop;
-		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::QUADTREE, []() {}); }));
+		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::DEPTH_BY_DEPTH); }));
 		QObject::connect(&d, &QFutureWatcher<void>::finished, &loop, &QEventLoop::quit);
 		loop.exec();
 		d.waitForFinished();
-		m_app->updateUI();
 	}
 	catch (const std::exception& e) {
 		m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
 	}
-	if (cloud->getOctree() == nullptr) {
-		cloud->computeOctree();
-	}
+	cloud->setName("Cloud");
+	m_app->updateUI();
 }
 
+
+void qGreyhound::download_more_dimensions(ccGreyhoundCloud *c)
+{
+
+	const std::vector<QString> available(c->available_dims());
+	std::vector<QString> downloaded;
+	std::vector<QString> not_downloaded;
+
+
+	downloaded.reserve(c->getNumberOfScalarFields());
+
+	for (int i(0); i < c->getNumberOfScalarFields(); ++i) {
+		downloaded.emplace_back(c->getScalarField(i)->getName());
+	}
+
+	for (const QString& name : available) {
+		if (name == "X" || name == "Y" || name == "Z" || name == "PointId") {
+			continue;
+		}
+		auto res = std::find(std::begin(downloaded), std::end(downloaded), name);
+		if (res == std::end(downloaded)) {
+			not_downloaded.emplace_back(name);
+		}
+	}
+
+	auto to_be_downloaded = ask_for_dimensions(not_downloaded);
+	if (to_be_downloaded.size() == 0) {
+		m_app->dispToConsole("[qGreyhound] no dimensions were selected");
+		return;
+	}
+
+	Json::Value dims(Json::arrayValue);
+	for (const QString& name : to_be_downloaded) {
+		dims.append(Json::Value(name.toStdString()));
+	}
+
+
+	PDALConverter converter;
+	converter.set_shift(c->getGlobalShift());
+	pdal::Options opts;
+	opts.add("url", c->origin()->url().toString().toStdString());
+	opts.add("dims", dims);
+	opts.add("bounds", c->bbox().toJson());
+
+	QString cloud_name = c->getName();
+	c->setName(cloud_name + " (downloading...)");
+
+	try {
+		download_and_convert_cloud_threaded(c, opts, converter);
+	}
+	catch (const std::exception& e) {
+		m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+	}
+	c->prepareDisplayForRefresh();
+	c->redrawDisplay();
+	c->setName(cloud_name);
+	m_app->updateUI();
+}
 
 QIcon qGreyhound::getIcon() const
 {

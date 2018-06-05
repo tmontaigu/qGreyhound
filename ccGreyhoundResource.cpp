@@ -1,12 +1,10 @@
-#include "GreyhoundResource.h"
-
-
 #include <QUrlQuery>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QEventLoop>
 
+#include "ccGreyhoundResource.h"
 
 QString resource_name_from_url(const QString& url) 
 {
@@ -42,7 +40,7 @@ QJsonObject greyhound_info(QUrl url)
 
 
 
-qGreyhoundResource::qGreyhoundResource(QUrl url)
+ccGreyhoundResource::ccGreyhoundResource(QUrl url)
 	: ccCustomHObject(QString("[Greyhound] %1").arg(resource_name_from_url(url.toString())))
 	, m_url(std::move(url))
 	, m_info(greyhound_info(m_url))

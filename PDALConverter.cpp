@@ -11,30 +11,33 @@ is_vector_zero(const CCVector3d& vec)
 	return (vec - CCVector3d(0, 0, 0)).norm() < std::numeric_limits<double>::epsilon();
 }
 
-std::unique_ptr<ccPointCloud>
-PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout)
+void
+PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud *cloud)
 {
-	auto cloud = std::make_unique<ccPointCloud>("ConvertedCloud");
+	using DimId = pdal::Dimension::Id;
+
 	if (!cloud || !cloud->reserve(view->size())) {
-		return cloud;
+		return;
 	}
 	
-	if (is_vector_zero(m_shift)) {
-		pdal::BOX3D bounds;
-		view->calculateBounds(bounds);
-		m_shift = CCVector3d(bounds.minx, bounds.miny, bounds.minz);
+	if (layout->hasDim(DimId::X) || layout->hasDim(DimId::Y) || layout->hasDim(DimId::Z)) {
+		if (is_vector_zero(m_shift)) {
+			pdal::BOX3D bounds;
+			view->calculateBounds(bounds);
+			m_shift = CCVector3d(bounds.minx, bounds.miny, bounds.minz);
+		}
+
+		for (size_t i = 0; i < view->size(); ++i) {
+			cloud->addPoint(CCVector3(
+				view->getFieldAs<double>(DimId::X, i) - m_shift.x,
+				view->getFieldAs<double>(DimId::Y, i) - m_shift.y,
+				view->getFieldAs<double>(DimId::Z, i) - m_shift.z
+			));
+		}
+		cloud->setGlobalShift(m_shift);
 	}
 
-	for (size_t i = 0; i < view->size(); ++i) {
-		cloud->addPoint(CCVector3(
-			view->getFieldAs<double>(pdal::Dimension::Id::X, i) - m_shift.x,
-			view->getFieldAs<double>(pdal::Dimension::Id::Y, i) - m_shift.y,
-			view->getFieldAs<double>(pdal::Dimension::Id::Z, i) - m_shift.z
-		));
-	}
-	cloud->setGlobalShift(m_shift);
-
-	pdal::Dimension::IdList color_ids{ pdal::Dimension::Id::Red, pdal::Dimension::Id::Green, pdal::Dimension::Id::Blue };
+	pdal::Dimension::IdList color_ids{ DimId::Red, DimId::Green, DimId::Blue };
 	bool has_all_colors = true;
 	for (auto color_id : color_ids) {
 		if (!view->hasDim(color_id)) {
@@ -44,11 +47,9 @@ PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout)
 	}
 
 	if (has_all_colors) {
-		convert_rgb(view, cloud.get());
+		convert_rgb(view, cloud);
 	}
-	convert_scalar_fields(view, layout, cloud.get());
-
-	return cloud;
+	convert_scalar_fields(view, layout, cloud);
 }
 
 void 

@@ -114,12 +114,21 @@ pdal::greyhound::Bounds ask_for_bbox()
 	{
 		return {};
 	}
-	return {
-			ui.xmin->text().toDouble(),
-			ui.ymin->text().toDouble(),
-			ui.xmax->text().toDouble(),
-			ui.ymax->text().toDouble()
-	};
+
+	double xmin = ui.xmin->text().toDouble();
+	double ymin = ui.ymin->text().toDouble();
+	double xmax = ui.xmax->text().toDouble();
+	double ymax = ui.ymax->text().toDouble();
+
+	if (xmin > xmax) {
+		std::swap(xmin, xmax);
+	}
+
+	if (ymin > ymax) {
+		std::swap(ymin, ymax);
+	}
+
+	return { xmin, ymin, xmax, ymax };
 }
 
 
@@ -203,7 +212,7 @@ void qGreyhound::download_bounding_box()
 		m_app->dispToConsole("[qGreyhound] Empty bbox");
 		bounds = { 1415593.910970612, 4184732.482818023,1415620.5006109416, 4184752.4613910406,};
 	}
-		
+
 
 	CCVector3d shift = resource->info().bounds_conforming_min();
 	PDALConverter converter;

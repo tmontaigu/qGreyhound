@@ -35,7 +35,7 @@ PDALConverter::convert(const pdal::PointViewPtr view, const pdal::PointLayoutPtr
 				view->getFieldAs<double>(DimId::Z, i) - m_shift.z
 			));
 		}
-		cloud->setGlobalShift(m_shift);
+		cloud->setGlobalShift(-m_shift);
 	}
 
 	pdal::Dimension::IdList color_ids{ DimId::Red, DimId::Green, DimId::Blue };

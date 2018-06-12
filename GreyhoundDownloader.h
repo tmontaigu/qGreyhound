@@ -2,28 +2,26 @@
 
 #include <ccPointCloud.h>
 
-#include <pdal/pdal.hpp>
 #include <GreyhoundCommon.hpp>
 
 #include "PDALConverter.h"
 
-void download_and_convert_cloud(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter = PDALConverter());
-void download_and_convert_cloud_threaded(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter = PDALConverter());
+void download_and_convert_cloud(ccPointCloud *cloud, const pdal::Options& opts, PDALConverter converter = PDALConverter());
+void download_and_convert_cloud_threaded(ccPointCloud *cloud, const pdal::Options& opts, PDALConverter converter = PDALConverter());
 
 struct BoundsDepth
 {
 	BoundsDepth()
-		: b()
-		, depth(0)
+		: depth(0)
 		, cloud(nullptr)
 	{}
 
-	BoundsDepth(const pdal::greyhound::Bounds &b, int depth)
+	BoundsDepth(const pdal::greyhound::Bounds &b, const int depth)
 		: b(b)
 		, depth(depth)
 		, cloud(nullptr)
 	{}
-	BoundsDepth(const pdal::greyhound::Bounds &b, int depth, ccPointCloud* c)
+	BoundsDepth(const pdal::greyhound::Bounds &b, const int depth, ccPointCloud* c)
 		: BoundsDepth(b, depth)
 	{
 		cloud = c;
@@ -36,7 +34,7 @@ struct BoundsDepth
 class GreyhoundDownloader
 {
 public:
-	enum DOWNLOAD_METHOD
+	enum DownloadMethod
 	{
 		DEPTH_BY_DEPTH,
 		QUADTREE,
@@ -44,8 +42,8 @@ public:
 	};
 
 public:
-	GreyhoundDownloader(pdal::Options opts, uint32_t start_depth, pdal::greyhound::Bounds bounds, PDALConverter converter);
-	void download_to(ccPointCloud* cloud, DOWNLOAD_METHOD);
+	GreyhoundDownloader(const pdal::Options& opts, uint32_t start_depth, pdal::greyhound::Bounds bounds, PDALConverter converter);
+	void download_to(ccPointCloud* cloud, DownloadMethod);
 
 
 private:

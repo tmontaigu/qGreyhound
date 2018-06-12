@@ -19,16 +19,11 @@
 // Qt
 #include <QtGui>
 #include <QInputDialog>
-#include <QNetworkAccessManager>
-#include <QNetworkRequest>
-#include <QNetworkReply>
-#include <QDataStream>
 #include <QEventLoop>
 #include <QtConcurrent>
 
 #include <array>
 #include <queue>
-#include <cmath>
 
 #include <GreyhoundReader.hpp>
 #include <bounds.hpp>
@@ -36,7 +31,6 @@
 #include <ccHObject.h>
 #include <ccScalarField.h>
 #include <ccColorScalesManager.h>
-#include <ccProgressDialog.h>
 
 #include "qGreyhound.h"
 #include "DimensionDialog.h"
@@ -57,9 +51,9 @@ qGreyhound::qGreyhound(QObject* parent/*=0*/)
 void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 {
 	if (selectedEntities.size() == 1) {
-		ccGreyhoundResource *is_ressource = dynamic_cast<ccGreyhoundResource*>(selectedEntities.at(0));
-		ccGreyhoundCloud *is_cloud = dynamic_cast<ccGreyhoundCloud*>(selectedEntities.at(0));
-		m_download_bounding_box->setEnabled(is_ressource || is_cloud);
+		auto *is_ressource = dynamic_cast<ccGreyhoundResource*>(selectedEntities.at(0));
+		auto *is_cloud = dynamic_cast<ccGreyhoundCloud*>(selectedEntities.at(0));
+		m_download_bounding_box->setEnabled(is_ressource || (is_cloud && is_cloud->state() == ccGreyhoundCloud::IDLE));
 
 	}
 	else {
@@ -87,7 +81,7 @@ QList<QAction*> qGreyhound::getActions()
 	return { m_connect_to_resource, m_download_bounding_box };
 }
 
-std::vector<QString> ask_for_dimensions(std::vector<QString> available_dims) 
+std::vector<QString> ask_for_dimensions(const std::vector<QString>& available_dims)
 {
 	QEventLoop loop;
 	DimensionDialog dm(available_dims);
@@ -133,13 +127,13 @@ pdal::greyhound::Bounds ask_for_bbox()
 
 
 
-void qGreyhound::connect_to_resource()
+void qGreyhound::connect_to_resource() const
 {
-	bool ok = false;
-	QString text = QInputDialog::getText(
-		(QWidget*)m_app->getMainWindow(), 
+	auto ok = false;
+	const auto text = QInputDialog::getText(
+		reinterpret_cast<QWidget*>(m_app->getMainWindow()),
 		tr("Connect to Greyhound"),
-		tr("Greyhound ressource url"), 
+		tr("Greyhound ressource url"),
 		QLineEdit::Normal,
 		"http://<url>:<port>/resource/<resource_name>",
 		&ok
@@ -157,8 +151,7 @@ void qGreyhound::connect_to_resource()
 		return;
 	}
 
-	ccGreyhoundResource *resource(nullptr);
-
+	ccGreyhoundResource *resource;
 	try {
 		resource = new ccGreyhoundResource(url);
 	}
@@ -170,13 +163,13 @@ void qGreyhound::connect_to_resource()
 	m_app->addToDB(resource);
 }
 
-void qGreyhound::download_bounding_box()
+void qGreyhound::download_bounding_box() const
 {
 	assert(m_app);
-	
+
 	const auto& selected_ent = m_app->getSelectedEntities();
 
-	ccGreyhoundCloud *c = dynamic_cast<ccGreyhoundCloud*> (selected_ent.at(0));
+	const auto c = dynamic_cast<ccGreyhoundCloud*> (selected_ent.at(0));
 	if (c) {
 		try
 		{
@@ -185,43 +178,45 @@ void qGreyhound::download_bounding_box()
 		catch (const std::exception& e)
 		{
 			m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+			return;
 		}
 	}
 
-	ccGreyhoundResource *resource = dynamic_cast<ccGreyhoundResource*>(selected_ent.at(0));
+	auto resource = dynamic_cast<ccGreyhoundResource*>(selected_ent.at(0));
 	if (!resource) {
 		return;
 	}
 
 	uint32_t curr_octree_lvl = resource->info().base_depth();
-	const std::vector<QString> available_dims(std::move(resource->info().available_dim_name()));
-	const std::vector<QString> requested_dims(std::move(ask_for_dimensions(available_dims)));
-	if (requested_dims.size() == 0) {
+	const auto available_dims(resource->info().available_dim_name());
+	const auto requested_dims(ask_for_dimensions(available_dims));
+	if (requested_dims.empty()) {
 		m_app->dispToConsole("[qGreyhound] no dimensions were selected");
 		return;
 	}
 
 	Json::Value dims(Json::arrayValue);
-	for (const QString& name : requested_dims) {
+	for (const auto& name : requested_dims) {
 		dims.append(Json::Value(name.toStdString()));
 	}
 
 
-	Greyhound::Bounds bounds = ask_for_bbox();
+	auto bounds = ask_for_bbox();
 	if (bounds.empty()) {
 		m_app->dispToConsole("[qGreyhound] Empty bbox");
-		bounds = { 1415593.910970612, 4184732.482818023,1415620.5006109416, 4184752.4613910406,};
+		bounds = { 1415593.910970612, 4184732.482818023,1415620.5006109416, 4184752.4613910406, };
 	}
 
 
-	CCVector3d shift = resource->info().bounds_conforming_min();
+	const auto shift = resource->info().bounds_conforming_min();
 	PDALConverter converter;
 	converter.set_shift(shift);
 	pdal::Options opts;
 	opts.add("url", resource->url().toString().toStdString());
 	opts.add("dims", dims);
 
-	ccGreyhoundCloud *cloud = new ccGreyhoundCloud("Cloud (downloading...)");
+	auto cloud = new ccGreyhoundCloud("Cloud (downloading...)");
+	cloud->set_state((ccGreyhoundCloud::WAITING_FOR_POINTS));
 	// We download the first depth separately here to be able to add it to cc's DB
 	{
 		pdal::Options q_opts(opts);
@@ -240,7 +235,7 @@ void qGreyhound::download_bounding_box()
 		if (cloud->size() == 0) {
 			return;
 		}
-		
+
 		cloud->set_bbox(bounds);
 		cloud->set_origin(resource);
 		resource->addChild(cloud);
@@ -263,65 +258,72 @@ void qGreyhound::download_bounding_box()
 		return;
 	}
 	cloud->setName("Cloud");
+	cloud->set_state(ccGreyhoundCloud::IDLE);
 	m_app->updateUI();
 }
 
 
-void qGreyhound::download_more_dimensions(ccGreyhoundCloud *c)
+void qGreyhound::download_more_dimensions(ccGreyhoundCloud *cloud) const
 {
+	if (cloud->state() != ccGreyhoundCloud::State::IDLE)
+	{
+		m_app->dispToConsole("You have to wait for the current download to finish", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+		return;
+	}
 
-	const std::vector<QString> available(c->available_dims());
+	const auto available(cloud->available_dims());
 	std::vector<QString> downloaded;
 	std::vector<QString> not_downloaded;
 
 
-	downloaded.reserve(c->getNumberOfScalarFields());
+	downloaded.reserve(cloud->getNumberOfScalarFields());
 
-	for (unsigned int i(0); i < c->getNumberOfScalarFields(); ++i) {
-		downloaded.emplace_back(c->getScalarField(i)->getName());
+	for (unsigned int i(0); i < cloud->getNumberOfScalarFields(); ++i) {
+		downloaded.emplace_back(cloud->getScalarField(i)->getName());
 	}
 
-	for (const QString& name : available) {
+	for (const auto& name : available) {
 		if (name == "X" || name == "Y" || name == "Z" || name == "PointId") {
 			continue;
 		}
-		auto res = std::find(std::begin(downloaded), std::end(downloaded), name);
-		if (res == std::end(downloaded)) {
+		if (std::find(std::begin(downloaded), std::end(downloaded), name) == std::end(downloaded)) {
 			not_downloaded.emplace_back(name);
 		}
 	}
 
 	auto to_be_downloaded = ask_for_dimensions(not_downloaded);
-	if (to_be_downloaded.size() == 0) {
+	if (to_be_downloaded.empty()) {
 		m_app->dispToConsole("[qGreyhound] no dimensions were selected");
 		return;
 	}
 
 	Json::Value dims(Json::arrayValue);
-	for (const QString& name : to_be_downloaded) {
+	for (const auto& name : to_be_downloaded) {
 		dims.append(Json::Value(name.toStdString()));
 	}
 
 
 	PDALConverter converter;
-	converter.set_shift(c->getGlobalShift());
+	converter.set_shift(cloud->getGlobalShift());
 	pdal::Options opts;
-	opts.add("url", c->origin()->url().toString().toStdString());
+	opts.add("url", cloud->origin()->url().toString().toStdString());
 	opts.add("dims", dims);
-	opts.add("bounds", c->bbox().toJson());
+	opts.add("bounds", cloud->bbox().toJson());
 
-	QString cloud_name = c->getName();
-	c->setName(cloud_name + " (downloading...)");
+	cloud->set_state(ccGreyhoundCloud::WAITING_FOR_POINTS);
+	const auto cloud_name = cloud->getName();
+	cloud->setName(cloud_name + " (downloading...)");
 
 	try {
-		download_and_convert_cloud_threaded(c, opts, converter);
+		download_and_convert_cloud_threaded(cloud, opts, converter);
 	}
 	catch (const std::exception& e) {
 		m_app->dispToConsole(QString("[qGreyhound] %1").arg(e.what()), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 	}
-	c->prepareDisplayForRefresh();
-	c->redrawDisplay();
-	c->setName(cloud_name);
+	cloud->prepareDisplayForRefresh();
+	cloud->redrawDisplay();
+	cloud->setName(cloud_name);
+	cloud->set_state(ccGreyhoundCloud::IDLE);
 	m_app->updateUI();
 }
 

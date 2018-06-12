@@ -18,10 +18,10 @@ void DimensionDialog::createListWidget(const std::vector<QString>& names) {
 	}
 
 	QListWidgetItem* item = 0;
-	for (int i = 0; i < widget->count(); ++i) {
+	for (int i(0); i < widget->count(); ++i) {
 		item = widget->item(i);
 		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-		
+
 		if (item->text() == "X" || item->text() == "Y" || item->text() == "Z") {
 			item->setCheckState(Qt::Checked);
 		}
@@ -67,11 +67,10 @@ void DimensionDialog::highlightChecked(QListWidgetItem *item) {
 
 
 std::vector<QString> DimensionDialog::checked_dimensions() {
-	QListWidgetItem *item;
 	std::vector<QString> checked_items;
 
-	for (int i = 0; i < widget->count(); ++i) {
-		item = widget->item(i);
+	for (int i(0); i < widget->count(); ++i) {
+		QListWidgetItem *item = widget->item(i);
 		if (item->checkState() == Qt::Checked) {
 			checked_items.push_back(item->text());
 		}

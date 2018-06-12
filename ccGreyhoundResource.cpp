@@ -1,6 +1,4 @@
-#include <QUrlQuery>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QJsonArray>
 #include <QEventLoop>
 
@@ -12,15 +10,14 @@ QString resource_name_from_url(const QString& url)
 	return splits.at(splits.size() - 1);
 }
 
-QJsonObject greyhound_info(QUrl url)
+QJsonObject greyhound_info(const QUrl& url)
 {
 	QNetworkAccessManager qnam;
 	QNetworkRequest request;
-	QNetworkReply *reply(nullptr);
 
 	const QUrl info_url(url.toString() + "/info");
 	request.setUrl(info_url);
-	reply = qnam.get(request);
+	QNetworkReply *reply = qnam.get(request);
 
 	QEventLoop loop;
 	QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
@@ -30,7 +27,7 @@ QJsonObject greyhound_info(QUrl url)
 		throw std::runtime_error(reply->errorString().toStdString());
 	}
 
-	QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
+	auto document = QJsonDocument::fromJson(reply->readAll());
 	
 	if (!document.isObject()) {
 		throw std::runtime_error("Received info is not a proper json object");
@@ -47,7 +44,7 @@ ccGreyhoundResource::ccGreyhoundResource(QUrl url)
 {
 }
 
-GreyhoundInfo::GreyhoundInfo(QJsonObject info)
+GreyhoundInfo::GreyhoundInfo(const const QJsonObject& info)
 	: m_info(info)
 {
 }

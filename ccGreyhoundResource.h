@@ -1,10 +1,6 @@
 #pragma once
 
-#include <QUrl>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
-#include <QNetworkRequest>
-#include <QException>
 #include <QJsonObject>
 #include <QIcon>
 
@@ -15,7 +11,7 @@
 class GreyhoundInfo
 {
 public:
-	GreyhoundInfo(QJsonObject info); 
+	explicit GreyhoundInfo(const QJsonObject& info); 
 	int base_depth() const;
 	std::vector<QString> available_dim_name() const;
 	CCVector3d offset() const;
@@ -30,7 +26,7 @@ private:
 class ccGreyhoundResource : public ccCustomHObject
 {
 public:
-	ccGreyhoundResource(QUrl url);
+	explicit ccGreyhoundResource(QUrl url);
 	bool isSerializable() const override { return false; };
 	static QString DefautMetaDataClassName() { return "qGreyHoundResource"; };
 	static QString DefaultMetaDataPluginName() { return "qGreyhound"; };
@@ -46,4 +42,4 @@ private:
 
 
 QString resource_name_from_url(const QString& url);
-QJsonObject greyhound_info(QUrl url);
+QJsonObject greyhound_info(const QUrl& url);

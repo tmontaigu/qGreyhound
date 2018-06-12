@@ -2,10 +2,10 @@
 
 #include "ccGreyhoundResource.h"
 
-ccGreyhoundCloud::ccGreyhoundCloud(QString name)
+ccGreyhoundCloud::ccGreyhoundCloud(const QString& name)
 	: ccPointCloud(name)
-	, m_bbox()
 	, m_origin(nullptr)
+	, m_state(ccGreyhoundCloud::State::IDLE)
 {
 }
 
@@ -19,7 +19,7 @@ const Greyhound::Bounds & ccGreyhoundCloud::bbox() const
 	return m_bbox;
 }
 
-const std::vector<QString> ccGreyhoundCloud::available_dims() const
+std::vector<QString> ccGreyhoundCloud::available_dims() const
 {
 	if (m_origin) {
 		return m_origin->info().available_dim_name();
@@ -27,12 +27,22 @@ const std::vector<QString> ccGreyhoundCloud::available_dims() const
 	return {};
 }
 
-void ccGreyhoundCloud::set_origin(ccGreyhoundResource *origin) 
+void ccGreyhoundCloud::set_origin(ccGreyhoundResource *origin)
 {
 	m_origin = origin;
 }
 
+void ccGreyhoundCloud::set_state(const State state)
+{
+	m_state = state;
+}
+
 const ccGreyhoundResource* ccGreyhoundCloud::origin() const {
 	return m_origin;
+}
+
+ccGreyhoundCloud::State ccGreyhoundCloud::state() const
+{
+	return m_state;
 }
 

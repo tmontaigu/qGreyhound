@@ -13,8 +13,8 @@ public:
 
 
 private:
-	void convert_rgb(pdal::PointViewPtr, ccPointCloud *out_cloud);
-	void convert_scalar_fields(pdal::PointViewPtr, pdal::PointLayoutPtr, ccPointCloud*);
+	static void convert_rgb(pdal::PointViewPtr, ccPointCloud *out_cloud);
+	static void convert_scalar_fields(pdal::PointViewPtr, pdal::PointLayoutPtr, ccPointCloud*);
 
 private:
 	CCVector3d m_shift;

@@ -1,11 +1,8 @@
 #pragma once
 
-#include <QDialog>
 #include <QDialogButtonBox>
-#include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
-#include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QGroupBox>
 #include <QMessageBox>
@@ -17,7 +14,7 @@ class DimensionDialog : public QDialog
 	Q_OBJECT
 
 public:
-	DimensionDialog(const std::vector<QString>& names, QWidget *parent = 0);
+	explicit DimensionDialog(const std::vector<QString>& names, QWidget *parent = 0);
 	std::vector<QString> checked_dimensions();
 
 public slots:

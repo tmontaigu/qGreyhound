@@ -30,8 +30,8 @@
 class qGreyhound : public QObject, public ccStdPluginInterface
 {
 	Q_OBJECT
-	Q_INTERFACES(ccStdPluginInterface)
-	Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qGreyhound" FILE "info.json")
+		Q_INTERFACES(ccStdPluginInterface)
+		Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qGreyhound" FILE "info.json")
 
 public:
 
@@ -40,26 +40,26 @@ public:
 	virtual ~qGreyhound() = default;
 
 	//inherited from ccPluginInterface
-	virtual QString getName() const override { return "qGreyhound"; }
-	virtual QString getDescription() const override { return "Greyhound things in cloudcompare"; }
-	virtual QIcon getIcon() const override;
+	QString getName() const override { return "qGreyhound"; }
+	QString getDescription() const override { return "Greyhound things in cloudcompare"; }
+	QIcon getIcon() const override;
 
 	//inherited from ccStdPluginInterface
 	void onNewSelection(const ccHObject::Container& selectedEntities) override;
-	virtual QList<QAction*> getActions() override;
+	QList<QAction*> getActions() override;
 
 
 protected slots:
 
-	void connect_to_resource();
-	void download_bounding_box();
+	void connect_to_resource() const;
+	void download_bounding_box() const;
 
 protected:
 	QAction* m_download_bounding_box;
 	QAction* m_connect_to_resource;
 
 
-	void download_more_dimensions(ccGreyhoundCloud* cloud);
+	void download_more_dimensions(ccGreyhoundCloud* cloud) const;
 };
 
 #endif

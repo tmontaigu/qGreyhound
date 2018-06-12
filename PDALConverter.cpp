@@ -7,20 +7,20 @@
 
 using DimId = pdal::Dimension::Id;
 
-bool 
+bool
 is_vector_zero(const CCVector3d& vec)
 {
 	return (vec - CCVector3d(0, 0, 0)).norm() < std::numeric_limits<double>::epsilon();
 }
 
 void
-PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud *cloud)
+PDALConverter::convert(const pdal::PointViewPtr view, const pdal::PointLayoutPtr layout, ccPointCloud *cloud)
 {
 
 	if (!cloud || !cloud->reserve(view->size())) {
 		return;
 	}
-	
+
 	if (layout->hasDim(DimId::X) || layout->hasDim(DimId::Y) || layout->hasDim(DimId::Z)) {
 		if (is_vector_zero(m_shift)) {
 			pdal::BOX3D bounds;
@@ -53,8 +53,8 @@ PDALConverter::convert(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccP
 	convert_scalar_fields(view, layout, cloud);
 }
 
-void 
-PDALConverter::convert_rgb(pdal::PointViewPtr view, ccPointCloud *out_cloud)
+void
+PDALConverter::convert_rgb(const pdal::PointViewPtr view, ccPointCloud *out_cloud)
 {
 	if (!out_cloud->size()) {
 		return;
@@ -64,8 +64,8 @@ PDALConverter::convert_rgb(pdal::PointViewPtr view, ccPointCloud *out_cloud)
 	}
 	else
 	{
-		std::array<uint16_t, 3> rgb_16 { 0,0,0 };
-		std::array<ColorCompType, 3> rgb { 0,0,0 };
+		std::array<uint16_t, 3> rgb_16{ 0,0,0 };
+		std::array<ColorCompType, 3> rgb{ 0,0,0 };
 		for (size_t i = 0; i < view->size(); ++i) {
 			rgb_16[0] = view->getFieldAs<uint16_t>(DimId::Red, i);
 			rgb_16[1] = view->getFieldAs<uint16_t>(DimId::Green, i);
@@ -82,24 +82,24 @@ PDALConverter::convert_rgb(pdal::PointViewPtr view, ccPointCloud *out_cloud)
 	}
 }
 
-void 
-PDALConverter::convert_scalar_fields(pdal::PointViewPtr view, pdal::PointLayoutPtr layout, ccPointCloud* out_cloud)
+void
+PDALConverter::convert_scalar_fields(const pdal::PointViewPtr view, const pdal::PointLayoutPtr layout, ccPointCloud* out_cloud)
 {
-	for (pdal::Dimension::Id id : view->dims()) {
+	for (auto id : view->dims()) {
 		if (id == DimId::X || id == DimId::Y || id == DimId::Z) {
 			continue;
 		}
-		ccScalarField *sf = new ccScalarField(layout->dimName(id).c_str());
+		auto sf = new ccScalarField(layout->dimName(id).c_str());
 		sf->reserve(view->size());
 
 		for (size_t i = 0; i < view->size(); ++i) {
-			ScalarType value = view->getFieldAs<ScalarType>(id, i);
+			auto value = view->getFieldAs<ScalarType>(id, i);
 			sf->addElement(value);
 		}
 
 		sf->computeMinAndMax();
 
-		int sf_index = out_cloud->addScalarField(sf);
+		const int sf_index = out_cloud->addScalarField(sf);
 		if (id == DimId::Intensity) {
 			sf->setColorScale(ccColorScalesManager::GetDefaultScale(ccColorScalesManager::GREY));
 			out_cloud->setCurrentDisplayedScalarField(sf_index);
@@ -107,8 +107,7 @@ PDALConverter::convert_scalar_fields(pdal::PointViewPtr view, pdal::PointLayoutP
 		}
 
 		if (id == DimId::GpsTime) {
-
-			ScalarType min = sf->getMin();
+			const ScalarType min = sf->getMin();
 			for (size_t i(0); i < sf->currentSize(); ++i) {
 				sf->setValue(i, sf->getValue(i) - min);
 			}
@@ -119,7 +118,7 @@ PDALConverter::convert_scalar_fields(pdal::PointViewPtr view, pdal::PointLayoutP
 	}
 }
 
-void PDALConverter::set_shift(CCVector3d shift)
+void PDALConverter::set_shift(const CCVector3d shift)
 {
-	m_shift = std::move(shift);
+	m_shift = shift;
 }

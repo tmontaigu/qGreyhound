@@ -10,26 +10,25 @@
 #include "GreyhoundDownloader.h"
 
 void
-download_and_convert_cloud(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter)
+download_and_convert_cloud(ccPointCloud *cloud, const pdal::Options& opts, PDALConverter converter)
 {
 	std::exception_ptr eptr(nullptr);
 	pdal::PointTable table;
-	pdal::PointViewSet view_set;
 	pdal::GreyhoundReader reader;
 
 	reader.addOptions(opts);
 
 	reader.prepare(table);
-	view_set = reader.execute(table);
-	pdal::PointViewPtr view_ptr = *view_set.begin();
+	pdal::PointViewSet view_set = reader.execute(table);
+	const pdal::PointViewPtr view_ptr = *view_set.begin();
 	converter.convert(view_ptr, table.layout(), cloud);
 }
 
 void
-download_and_convert_cloud_threaded(ccPointCloud *cloud, pdal::Options opts, PDALConverter converter)
+download_and_convert_cloud_threaded(ccPointCloud *cloud, const pdal::Options& opts, const PDALConverter converter)
 {
 	std::exception_ptr eptr(nullptr);
-	auto dl = [&cloud, &eptr](pdal::Options opts, PDALConverter converter) {
+	const auto dl = [&cloud, &eptr](const pdal::Options opts, const PDALConverter converter) {
 		try {
 			download_and_convert_cloud(cloud, opts, converter);
 		}
@@ -50,7 +49,7 @@ download_and_convert_cloud_threaded(ccPointCloud *cloud, pdal::Options opts, PDA
 	}
 }
 
-GreyhoundDownloader::GreyhoundDownloader(pdal::Options opts, uint32_t start_depth, pdal::greyhound::Bounds bounds, PDALConverter converter)
+GreyhoundDownloader::GreyhoundDownloader(const pdal::Options& opts, const uint32_t start_depth, const pdal::greyhound::Bounds bounds, const PDALConverter converter)
 	: m_opts(opts)
 	, m_current_depth(start_depth)
 	, m_bounds(bounds)
@@ -87,11 +86,11 @@ void DlWorker::run()
 }
 
 void
-GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method)
+GreyhoundDownloader::download_to(ccPointCloud *cloud, const DownloadMethod method)
 {
 	std::queue<BoundsDepth> qin;
 	std::queue<BoundsDepth> qout;
-	
+
 	std::mutex mu_qout;
 
 	using mutex_locker = std::lock_guard<std::mutex>;
@@ -99,9 +98,9 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method)
 
 	QThreadPool pool;
 	pool.setMaxThreadCount(8);
-	
 
-	auto f = [&qout, &mu_qout, this](BoundsDepth m) {
+
+	const auto f = [&qout, &mu_qout, this](BoundsDepth m) {
 		pdal::Options opts(m_opts);
 		opts.add("depth_begin", m.depth);
 		opts.add("depth_end", m.depth + 1);
@@ -126,7 +125,7 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, DOWNLOAD_METHOD method)
 		{
 			BoundsDepth m = qin.front();
 			qin.pop();
-			DlWorker *w = new DlWorker(f);
+			auto w = new DlWorker(f);
 			w->setAutoDelete(true);
 			w->m = m;
 			pool.start(w);

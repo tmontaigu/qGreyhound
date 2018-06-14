@@ -83,3 +83,8 @@ CCVector3d GreyhoundInfo::bounds_min() const
 	QJsonArray bounds = m_info.value("bounds").toArray();
 	return { bounds.at(0).toDouble(), bounds.at(1).toDouble(), bounds.at(2).toDouble() };
 }
+
+QString GreyhoundInfo::srs() const
+{
+	return m_info.value("srs").toString();
+}

@@ -259,6 +259,8 @@ void qGreyhound::download_bounding_box() const
 	}
 	cloud->setName("Cloud");
 	cloud->set_state(ccGreyhoundCloud::IDLE);
+
+	cloud->setMetaData("LAS.spatialReference.nosave", resource->info().srs());
 	m_app->updateUI();
 }
 

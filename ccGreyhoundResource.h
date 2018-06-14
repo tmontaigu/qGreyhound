@@ -17,6 +17,7 @@ public:
 	CCVector3d offset() const;
 	CCVector3d bounds_conforming_min() const;
 	CCVector3d bounds_min() const;
+	QString srs() const;
 
 private:
 	QJsonObject m_info;

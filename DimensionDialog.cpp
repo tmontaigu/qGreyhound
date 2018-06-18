@@ -11,15 +11,15 @@ DimensionDialog::DimensionDialog(const std::vector<QString>& names, QWidget *par
 }
 
 void DimensionDialog::createListWidget(const std::vector<QString>& names) {
-	widget = new QListWidget;
+	m_widget = new QListWidget;
 
 	for (const QString& name : names) {
-		widget->addItem(name);
+		m_widget->addItem(name);
 	}
 
 	QListWidgetItem* item = 0;
-	for (int i(0); i < widget->count(); ++i) {
-		item = widget->item(i);
+	for (int i(0); i < m_widget->count(); ++i) {
+		item = m_widget->item(i);
 		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
 
 		if (item->text() == "X" || item->text() == "Y" || item->text() == "Z") {
@@ -32,30 +32,30 @@ void DimensionDialog::createListWidget(const std::vector<QString>& names) {
 }
 
 void DimensionDialog::createOtherWidgets() {
-	viewBox = new QGroupBox(tr("Required components"));
-	buttonBox = new QDialogButtonBox;
-	closeButton = buttonBox->addButton(QDialogButtonBox::Ok);
+	m_view_box = new QGroupBox(tr("Required components"));
+	m_button_box = new QDialogButtonBox;
+	m_close_button = m_button_box->addButton(QDialogButtonBox::Ok);
 }
 
 void DimensionDialog::createLayout() {
-	QVBoxLayout* viewLayout = new QVBoxLayout;
-	viewLayout->addWidget(widget);
-	viewBox->setLayout(viewLayout);
+	QVBoxLayout* view_layout = new QVBoxLayout;
+	view_layout->addWidget(m_widget);
+	m_view_box->setLayout(view_layout);
 
-	QHBoxLayout* horizontalLayout = new QHBoxLayout;
-	horizontalLayout->addWidget(buttonBox);
+	QHBoxLayout* horizontal_layout = new QHBoxLayout;
+	horizontal_layout->addWidget(m_button_box);
 
 	QVBoxLayout* mainLayout = new QVBoxLayout;
-	mainLayout->addWidget(viewBox);
-	mainLayout->addLayout(horizontalLayout);
+	mainLayout->addWidget(m_view_box);
+	mainLayout->addLayout(horizontal_layout);
 
 	setLayout(mainLayout);
 }
 
-void DimensionDialog::createConnections() {
-	QObject::connect(widget, SIGNAL(itemChanged(QListWidgetItem*)),
+void DimensionDialog::createConnections() const {
+	QObject::connect(m_widget, SIGNAL(itemChanged(QListWidgetItem*)),
 		this, SLOT(highlightChecked(QListWidgetItem*)));
-	QObject::connect(closeButton, SIGNAL(clicked()), this, SLOT(close()));
+	QObject::connect(m_close_button, SIGNAL(clicked()), this, SLOT(close()));
 }
 
 void DimensionDialog::highlightChecked(QListWidgetItem *item) {
@@ -69,8 +69,8 @@ void DimensionDialog::highlightChecked(QListWidgetItem *item) {
 std::vector<QString> DimensionDialog::checked_dimensions() {
 	std::vector<QString> checked_items;
 
-	for (int i(0); i < widget->count(); ++i) {
-		QListWidgetItem *item = widget->item(i);
+	for (int i(0); i < m_widget->count(); ++i) {
+		QListWidgetItem *item = m_widget->item(i);
 		if (item->checkState() == Qt::Checked) {
 			checked_items.push_back(item->text());
 		}

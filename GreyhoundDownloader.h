@@ -34,16 +34,17 @@ struct BoundsDepth
 class GreyhoundDownloader
 {
 public:
-	enum DownloadMethod
+	enum class DownloadMethod
 	{
-		DEPTH_BY_DEPTH,
-		QUADTREE,
-		OCTREE
+		DepthByDepth,
+		Quadtree,
+		Octree
 	};
 
 public:
 	GreyhoundDownloader(const pdal::Options& opts, uint32_t start_depth, pdal::greyhound::Bounds bounds, PDALConverter converter);
 	void download_to(ccPointCloud* cloud, DownloadMethod);
+
 
 
 private:

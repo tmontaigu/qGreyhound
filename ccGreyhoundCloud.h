@@ -12,14 +12,14 @@ namespace Greyhound = pdal::greyhound;
 
 class ccGreyhoundCloud : public ccPointCloud {
 public:
-	enum State
+	enum class State
 	{
-		WAITING_FOR_POINTS,
-		IDLE
+		WaitingForPoints,
+		Idle
 	};
 
 
-	ccGreyhoundCloud(const QString& name = QString());
+	explicit ccGreyhoundCloud(const QString& name = QString());
 
 	void set_bbox(const Greyhound::Bounds bbox);
 	void set_origin(ccGreyhoundResource *origin);

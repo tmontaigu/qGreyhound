@@ -5,7 +5,7 @@
 ccGreyhoundCloud::ccGreyhoundCloud(const QString& name)
 	: ccPointCloud(name)
 	, m_origin(nullptr)
-	, m_state(ccGreyhoundCloud::State::IDLE)
+	, m_state(ccGreyhoundCloud::State::Idle)
 {
 }
 

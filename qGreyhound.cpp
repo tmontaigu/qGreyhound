@@ -53,7 +53,7 @@ void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 	if (selectedEntities.size() == 1) {
 		auto *is_ressource = dynamic_cast<ccGreyhoundResource*>(selectedEntities.at(0));
 		auto *is_cloud = dynamic_cast<ccGreyhoundCloud*>(selectedEntities.at(0));
-		m_download_bounding_box->setEnabled(is_ressource || (is_cloud && is_cloud->state() == ccGreyhoundCloud::IDLE));
+		m_download_bounding_box->setEnabled(is_ressource || (is_cloud && is_cloud->state() == ccGreyhoundCloud::State::Idle));
 
 	}
 	else {
@@ -216,7 +216,7 @@ void qGreyhound::download_bounding_box() const
 	opts.add("dims", dims);
 
 	auto cloud = new ccGreyhoundCloud("Cloud (downloading...)");
-	cloud->set_state((ccGreyhoundCloud::WAITING_FOR_POINTS));
+	cloud->set_state((ccGreyhoundCloud::State::WaitingForPoints));
 	// We download the first depth separately here to be able to add it to cc's DB
 	{
 		pdal::Options q_opts(opts);
@@ -248,7 +248,7 @@ void qGreyhound::download_bounding_box() const
 	try {
 		QFutureWatcher<void> d;
 		QEventLoop loop;
-		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::DEPTH_BY_DEPTH); }));
+		d.setFuture(QtConcurrent::run([&downloader, cloud]() { downloader.download_to(cloud, GreyhoundDownloader::DownloadMethod::DepthByDepth); }));
 		QObject::connect(&d, &QFutureWatcher<void>::finished, &loop, &QEventLoop::quit);
 		loop.exec();
 		d.waitForFinished();
@@ -258,7 +258,7 @@ void qGreyhound::download_bounding_box() const
 		return;
 	}
 	cloud->setName("Cloud");
-	cloud->set_state(ccGreyhoundCloud::IDLE);
+	cloud->set_state(ccGreyhoundCloud::State::Idle);
 
 	cloud->setMetaData("LAS.spatialReference.nosave", resource->info().srs());
 	m_app->updateUI();
@@ -267,7 +267,7 @@ void qGreyhound::download_bounding_box() const
 
 void qGreyhound::download_more_dimensions(ccGreyhoundCloud *cloud) const
 {
-	if (cloud->state() != ccGreyhoundCloud::State::IDLE)
+	if (cloud->state() != ccGreyhoundCloud::State::Idle)
 	{
 		m_app->dispToConsole("You have to wait for the current download to finish", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return;
@@ -312,7 +312,7 @@ void qGreyhound::download_more_dimensions(ccGreyhoundCloud *cloud) const
 	opts.add("dims", dims);
 	opts.add("bounds", cloud->bbox().toJson());
 
-	cloud->set_state(ccGreyhoundCloud::WAITING_FOR_POINTS);
+	cloud->set_state(ccGreyhoundCloud::State::WaitingForPoints);
 	const auto cloud_name = cloud->getName();
 	cloud->setName(cloud_name + " (downloading...)");
 
@@ -325,7 +325,7 @@ void qGreyhound::download_more_dimensions(ccGreyhoundCloud *cloud) const
 	cloud->prepareDisplayForRefresh();
 	cloud->redrawDisplay();
 	cloud->setName(cloud_name);
-	cloud->set_state(ccGreyhoundCloud::IDLE);
+	cloud->set_state(ccGreyhoundCloud::State::Idle);
 	m_app->updateUI();
 }
 

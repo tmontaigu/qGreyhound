@@ -61,7 +61,6 @@ class DlWorker : public QRunnable
 {
 public:
 	DlWorker(std::function<void(BoundsDepth)> f);
-	~DlWorker();
 	void run() override;
 
 	BoundsDepth m;
@@ -71,14 +70,10 @@ private:
 };
 
 DlWorker::DlWorker(std::function<void(BoundsDepth)> f)
-	: QRunnable()
-	, m_f(f)
+	: m_f(std::move(f))
 {
 }
 
-DlWorker::~DlWorker()
-{
-}
 
 void DlWorker::run()
 {
@@ -157,16 +152,16 @@ GreyhoundDownloader::download_to(ccPointCloud *cloud, const DownloadMethod metho
 			{
 				switch (method)
 				{
-				case GreyhoundDownloader::DEPTH_BY_DEPTH:
+				case GreyhoundDownloader::DownloadMethod::DepthByDepth:
 					qin.emplace(m.b, m.depth + 1);
 					break;
-				case GreyhoundDownloader::QUADTREE:
+				case GreyhoundDownloader::DownloadMethod::Quadtree:
 					qin.emplace(m.b.getSe(), m.depth + 1);
 					qin.emplace(m.b.getSw(), m.depth + 1);
 					qin.emplace(m.b.getNe(), m.depth + 1);
 					qin.emplace(m.b.getNw(), m.depth + 1);
 					break;
-				case GreyhoundDownloader::OCTREE:
+				case GreyhoundDownloader::DownloadMethod::Octree:
 					break;
 				default:
 					break;

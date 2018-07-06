@@ -25,6 +25,7 @@
 #include <array>
 #include <queue>
 
+#include <GreyhoundWriter.hpp>
 #include <GreyhoundReader.hpp>
 #include <bounds.hpp>
 
@@ -55,6 +56,8 @@ void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 		auto *is_cloud = dynamic_cast<ccGreyhoundCloud*>(selectedEntities.at(0));
 		m_download_bounding_box->setEnabled(is_ressource || (is_cloud && is_cloud->state() == ccGreyhoundCloud::State::Idle));
 
+		m_send_back->setEnabled(is_cloud);
+
 	}
 	else {
 		m_download_bounding_box->setEnabled(false);
@@ -78,7 +81,14 @@ QList<QAction*> qGreyhound::getActions()
 		connect(m_download_bounding_box, &QAction::triggered, this, &qGreyhound::download_bounding_box);
 	}
 
-	return { m_connect_to_resource, m_download_bounding_box };
+	if (!m_send_back) {
+		m_send_back = new QAction("Send modifications", this);
+		m_send_back->setToolTip("Send the modifications to greyhound");
+		m_send_back->setIcon(QIcon(IconPaths::DownloadIcon));
+		connect(m_send_back, &QAction::triggered, this, &qGreyhound::send_back);
+	}
+
+	return { m_connect_to_resource, m_download_bounding_box, m_send_back };
 }
 
 std::vector<QString> ask_for_dimensions(const std::vector<QString>& available_dims)
@@ -258,6 +268,7 @@ void qGreyhound::download_bounding_box() const
 		return;
 	}
 	cloud->setName("Cloud");
+	cloud->compute_index_field();
 	cloud->set_state(ccGreyhoundCloud::State::Idle);
 
 	cloud->setMetaData("LAS.spatialReference.nosave", resource->info().srs());
@@ -311,7 +322,6 @@ void qGreyhound::download_more_dimensions(ccGreyhoundCloud *cloud) const
 	opts.add("url", cloud->origin()->url().toString().toStdString());
 	opts.add("dims", dims);
 	opts.add("bounds", cloud->bbox().toJson());
-
 	cloud->set_state(ccGreyhoundCloud::State::WaitingForPoints);
 	const auto cloud_name = cloud->getName();
 	cloud->setName(cloud_name + " (downloading...)");
@@ -328,6 +338,33 @@ void qGreyhound::download_more_dimensions(ccGreyhoundCloud *cloud) const
 	cloud->set_state(ccGreyhoundCloud::State::Idle);
 	m_app->updateUI();
 }
+
+void qGreyhound::send_back() const
+{
+	const auto& selected_ent = m_app->getSelectedEntities();
+
+	const auto c = dynamic_cast<ccGreyhoundCloud*> (selected_ent.at(0));
+	if (!c)
+	{
+		return;
+	}
+
+	pdal::GreyhoundWriter writer;
+	pdal::Options options;
+
+	try
+	{
+		options.add("url", c->origin()->url().toString().toStdString());
+		options.add("name", "qGreyhound");
+		options.add("bounds", c->bbox().toJson());
+	}
+	catch (const std::exception& e)
+	{
+		m_app->dispToConsole(e.what(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+	}
+
+}
+
 
 QIcon qGreyhound::getIcon() const
 {

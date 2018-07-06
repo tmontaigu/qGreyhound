@@ -53,10 +53,12 @@ protected slots:
 
 	void connect_to_resource() const;
 	void download_bounding_box() const;
+	void send_back() const;
 
 protected:
 	QAction* m_download_bounding_box;
 	QAction* m_connect_to_resource;
+	QAction* m_send_back;
 
 
 	void download_more_dimensions(ccGreyhoundCloud* cloud) const;

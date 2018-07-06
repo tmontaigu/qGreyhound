@@ -52,11 +52,17 @@ if (INSTALL_QGREYHOUND_PLUGIN)
 	include_directories( ${ARBITER_INCLUDE} ) 
 
 	find_library(PDAL_GREYHOUND_READER libpdal_plugin_reader_greyhound HINTS ${PDAL_LIBRARY_DIRS})
+	find_library(PDAL_GREYHOUND_WRITER libpdal_plugin_writer_greyhound HINTS ${PDAL_LIBRARY_DIRS})
+
 	target_link_libraries(QGREYHOUND_PLUGIN  ${PDAL_GREYHOUND_READER})
+	target_link_libraries(QGREYHOUND_PLUGIN  ${PDAL_GREYHOUND_WRITER})
 
 	find_library(ARBITER arbiter HINTS ${ARBITER_LIB})
 	target_link_libraries(QGREYHOUND_PLUGIN ${ARBITER})
 
 
+	if(WIN32)
+		target_link_libraries(QGREYHOUND_PLUGIN wsock32 ws2_32)
+	endif()
 
 endif()

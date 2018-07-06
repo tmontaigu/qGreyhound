@@ -1,5 +1,6 @@
-#include <ccGreyhoundCloud.h>
+#include <ccScalarField.h>
 
+#include <ccGreyhoundCloud.h>
 #include "ccGreyhoundResource.h"
 
 ccGreyhoundCloud::ccGreyhoundCloud(const QString& name)
@@ -44,5 +45,25 @@ const ccGreyhoundResource* ccGreyhoundCloud::origin() const {
 ccGreyhoundCloud::State ccGreyhoundCloud::state() const
 {
 	return m_state;
+}
+
+
+void ccGreyhoundCloud::compute_index_field()
+{
+	const auto name = "Indices";
+	if (getScalarFieldIndexByName(name) != -1)
+	{
+		return;
+	}
+	auto index_sf = new ccScalarField(name);
+	index_sf->reserve(size());
+
+	for (size_t i(0); i < size(); ++i)
+	{
+		index_sf->addElement(static_cast<float>(i));
+	}
+	index_sf->computeMinAndMax();
+
+	addScalarField(index_sf);
 }
 

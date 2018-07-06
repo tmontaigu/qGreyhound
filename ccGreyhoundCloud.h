@@ -30,6 +30,8 @@ public:
 	const ccGreyhoundResource *origin() const;
 	State state() const;
 
+	void compute_index_field();
+
 
 private:
 	Greyhound::Bounds m_bbox;

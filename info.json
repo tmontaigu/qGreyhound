@@ -1,7 +1,7 @@
 {
 	"type": "Standard",
 	"name": "qGreyhound (Standard Plugin)",
-	"icon": ":/CC/plugin/qGreyhound/icon.png",
+	"icon": ":/CC/plugin/qGreyhound/icons/icon.png",
 	"description": "Greyhound access in CloudCompare",
 	"authors": [
 		{

@@ -44,7 +44,7 @@ ccGreyhoundResource::ccGreyhoundResource(QUrl url)
 {
 }
 
-GreyhoundInfo::GreyhoundInfo(const const QJsonObject& info)
+GreyhoundInfo::GreyhoundInfo(const QJsonObject& info)
 	: m_info(info)
 {
 }

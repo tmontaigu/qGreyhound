@@ -2,6 +2,7 @@
 
 #include <QNetworkReply>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QIcon>
 
 #include <ccCustomObject.h>
@@ -18,6 +19,7 @@ public:
 	CCVector3d bounds_conforming_min() const;
 	CCVector3d bounds_min() const;
 	QString srs() const;
+	const QJsonArray& schema() const { return m_info.value("schema").toArray(); }
 
 private:
 	QJsonObject m_info;

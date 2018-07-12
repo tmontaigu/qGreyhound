@@ -54,13 +54,15 @@ void qGreyhound::onNewSelection(const ccHObject::Container& selectedEntities)
 	if (selectedEntities.size() == 1) {
 		auto *is_ressource = dynamic_cast<ccGreyhoundResource*>(selectedEntities.at(0));
 		auto *is_cloud = dynamic_cast<ccGreyhoundCloud*>(selectedEntities.at(0));
-		m_download_bounding_box->setEnabled(is_ressource || (is_cloud && is_cloud->state() == ccGreyhoundCloud::State::Idle));
 
-		m_send_back->setEnabled(is_cloud);
+		bool is_idle_cloud{ is_cloud && is_cloud->state() == ccGreyhoundCloud::State::Idle };
+		m_download_bounding_box->setEnabled(is_ressource || is_idle_cloud);
+		m_send_back->setEnabled(is_cloud && is_cloud);
 
 	}
 	else {
 		m_download_bounding_box->setEnabled(false);
+		m_send_back->setEnabled(false);
 	}
 }
 
@@ -84,7 +86,7 @@ QList<QAction*> qGreyhound::getActions()
 	if (!m_send_back) {
 		m_send_back = new QAction("Send modifications", this);
 		m_send_back->setToolTip("Send the modifications to greyhound");
-		m_send_back->setIcon(QIcon(IconPaths::DownloadIcon));
+		m_send_back->setIcon(QIcon(IconPaths::UploadIcon));
 		connect(m_send_back, &QAction::triggered, this, &qGreyhound::send_back);
 	}
 
@@ -343,20 +345,84 @@ void qGreyhound::send_back() const
 {
 	const auto& selected_ent = m_app->getSelectedEntities();
 
-	const auto c = dynamic_cast<ccGreyhoundCloud*> (selected_ent.at(0));
-	if (!c)
+	const auto cloud = dynamic_cast<ccGreyhoundCloud*> (selected_ent.at(0));
+	if (!cloud)
 	{
 		return;
 	}
 
-	pdal::GreyhoundWriter writer;
 	pdal::Options options;
+
+	std::vector<QString> cloud_dims;
+	cloud_dims.reserve(cloud->getNumberOfScalarFields());
+	for (size_t i(0); i < cloud->getNumberOfScalarFields(); ++i) {
+		cloud_dims.emplace_back(cloud->getScalarFieldName(i));
+	}
+
+	auto _ = ask_for_dimensions(cloud_dims);
+	auto schema = cloud->origin()->info().schema();
+
+	pdal::PointTable table;
+	Json::Value dims_array(Json::arrayValue);
+	std::vector<int> sf_indices;
+	std::vector<std::tuple<int, pdal::Dimension::Id>> ids;
+	for (const auto& dim_schema : schema)
+	{
+		const auto d = dim_schema.toObject();
+		const auto name = d.value("name").toString();
+		const auto type_name = d.value("type").toString();
+		const auto size = d.value("size").toInt();
+
+
+		auto type_str = "int" + std::to_string(8 * size);
+		if (type_name == "unsigned") {
+			type_str = "u" + type_str;
+		}
+
+		auto pos = std::find(_.begin(), _.end(), name);
+		if ( pos != _.end()) {
+			dims_array.append(Json::Value(name.toStdString()));
+			m_app->dispToConsole(QString("Appending %1").arg(QString::number(size)));
+			auto id = table.layout()->registerOrAssignDim(name.toStdString(), pdal::Dimension::type(type_str));
+			auto dist = std::distance(_.begin(), pos);
+			auto cc_dim_index = cloud->getScalarFieldIndexByName(qPrintable(_.at(dist)));
+
+			ids.emplace_back(cc_dim_index, id);
+		}
+	}
+
+	pdal::PointView view(table);
+
+	for (const auto& tuple : ids) 
+	{
+		auto sf_index = std::get<0>(tuple);
+		auto pdal_id = std::get<1>(tuple);
+		auto sf = cloud->getScalarField(sf_index);
+		for (size_t n(0); n < sf->currentSize(); ++n) {
+			auto casted_val = static_cast<uint8_t>(sf->getValue(n));
+			view.setField(pdal_id, n, casted_val);
+		}
+	}
+
 
 	try
 	{
-		options.add("url", c->origin()->url().toString().toStdString());
+		options.add("url", cloud->origin()->url().toString().toStdString());
 		options.add("name", "qGreyhound");
-		options.add("bounds", c->bbox().toJson());
+		options.add("bounds", cloud->bbox().toJson());
+		options.add("dims", dims_array);
+	}
+	catch (const std::exception& e)
+	{
+		m_app->dispToConsole(e.what(), ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+	}
+
+	pdal::GreyhoundWriter writer;
+	try
+	{
+		writer.addOptions(options);
+		writer.prepare(table);
+		writer.execute(table);
 	}
 	catch (const std::exception& e)
 	{
